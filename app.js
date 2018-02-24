@@ -188,7 +188,7 @@ function follow(userId) {
 function processDirectMessage(dm) {
 
     var userId = dm.sender.id;
-    var cmd = dm.text.toLowerCase().split(' ');
+    var cmd = dm.text.toLowerCase().replace(/ +/g, ' ').split(' ');
     
     switch(cmd[0]) {
         case 'blog':
