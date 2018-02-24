@@ -11,6 +11,8 @@ var twitter = new Twit({
 
 // Used to check that events are not triggered by the bot
 var APP_ID = process.env.APP_ID;
+// Twitter allows a max diect message length of 10000 characters per direct message
+var MAX_LENGTH = 10000;
 
 var commands = {
     blog: {
@@ -279,7 +281,7 @@ function handleHelp(userId, command) {
     if(command){
         var lineBreak = '\n--------------------';
         if(!commands[command]) {
-            sendError(userId, command);
+            handleError(userId, command);
             return;
         }
         response = commands[command].desc_start.concat(lineBreak);
@@ -367,12 +369,11 @@ function setParams(params) {
 }
 
 // Sends a direct message to the user
-function sendDirectMessage(userId, text) {
-    // Twitter allows a max length of 10000 characters per direct message
+async function sendDirectMessage(userId, text) {
     // Splitting the string into multiple messages if it's too long
-    if(text.length > 10000) {
-        twitter.post('direct_messages/events/new', createDirectMessageObject(userId,text.substr(0, 10000)), function() {
-            sendDirectMessage(userId, text.substr(10000, text.length - 10000));
+    if(text.length > MAX_LENGTH) {
+        twitter.post('direct_messages/events/new', createDirectMessageObject(userId,text.substr(0, MAX_LENGTH)), () => {
+            sendDirectMessage(userId, text.substr(MAX_LENGTH, text.length - MAX_LENGTH));
         });
     } else {
         twitter.post('direct_messages/events/new', createDirectMessageObject(userId, text));
@@ -381,7 +382,6 @@ function sendDirectMessage(userId, text) {
 
 // Creates a Direct Message Object
 function createDirectMessageObject(userId, text) {
-
     return {
         event: {
             type: 'message_create',
@@ -395,7 +395,6 @@ function createDirectMessageObject(userId, text) {
             }
         }
     }
-
 }
 
 // Creates an User Object
