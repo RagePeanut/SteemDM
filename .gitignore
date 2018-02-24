@@ -1,0 +1,13 @@
+# Config
+.env
+.vscode/
+nodemon.json
+
+# Generated data
+data/
+
+# Packages
+node_modules/
+
+# Other
+welcomeMessage.js
