@@ -30,7 +30,8 @@ npm start
 
 ## Special thanks to
 **Steemit** for [steem.js](https://github.com/steemit/steem-js)
-**@ttezel** for [Twit](https://github.com/ttezel/twit)
+
+**ttezel** for [Twit](https://github.com/ttezel/twit)
 
 ## Social networks
 **Steemit:** https://steemit.com/@ragepeanut
