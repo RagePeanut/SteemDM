@@ -2,7 +2,7 @@
 An Open-Source Twitter bot that lets you interact with the Steem blockchain through direct messages.
 
 ## Try it !
-You can find a deployment of this bot at the following address: https://twitter.com/SteemBot_
+You can find a deployment of this bot at the following address: [https://twitter.com/SteemBot_](https://twitter.com/SteemBot_)
 
 ## Deploy
 **Required:** [Git](https://git-scm.com/), [NPM](https://www.npmjs.com/), [Node.js](https://nodejs.org/), a [Twitter](https://twitter.com/) account that will be used by the bot. If you wish to deploy your own version of this bot, follow these steps carefully.
