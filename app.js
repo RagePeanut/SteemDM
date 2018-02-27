@@ -1,5 +1,6 @@
 var Twit = require('twit');
 var steem = require('steem');
+require('./textConverter')();
 
 // Authentifying
 var twitter = new Twit({
@@ -325,7 +326,14 @@ function handleOpen(userId, index) {
         if(allowedCommandNames.includes(users[userId].last_command.name)) {
             if(index >= 0 && index < users[userId].last_query_result.array.length) {
                 var post = users[userId].last_query_result.array[index];
-                var text = post.title + '\n--------------------\n' + post.body;
+                var payoutLine = post.last_payout === '1970-01-01T00:00:00' ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
+                                                                            : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$'); 
+                var text = post.title
+                           + '\n--------------------'
+                           + '\n' + convert(post.body)
+                           + '\n--------------------'
+                           + '\n' + payoutLine
+                           + '\n' + post.net_votes + ' upvotes, ' + post.children + ' comments';
                 sendDirectMessage(userId, text);
                 saveSubcommand(userId, 'open', ++index);
             }
