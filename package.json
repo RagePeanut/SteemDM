@@ -21,6 +21,7 @@
   "author": "RagePeanut",
   "license": "GPL-3.0",
   "dependencies": {
+    "mongodb": "^3.0.3",
     "steem": "^0.7.1",
     "twit": "^2.2.9"
   },

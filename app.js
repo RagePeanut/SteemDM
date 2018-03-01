@@ -1,6 +1,8 @@
 var Twit = require('twit');
 var steem = require('steem');
-require('./textConverter')();
+var MongoClient = require('mongodb').MongoClient;
+
+require('./utils/markdownParser')();
 
 // Authentifying
 var twitter = new Twit({
@@ -14,11 +16,17 @@ var twitter = new Twit({
 var APP_ID = process.env.APP_ID;
 // Twitter allows a max diect message length of 10000 characters per direct message
 var MAX_LENGTH = 10000;
+// Connection string for MongoDB
+var CONNECTION_STRING = 'mongodb://steemit:steemit@mongo1.steemdata.com:27017/SteemData';
 
 var commands = {
     blog: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
         desc_start: 'This command prints the last 10 posts you\'ve made.',
+        keywords: [
+            'blog',
+            'b'
+        ],
         params: [
             {
                 name: 'quantity',
@@ -34,12 +42,22 @@ var commands = {
     close: {
         desc_end: '',
         desc_start: 'This subcommand closes an opened post and reprints the list of posts previously printed.',
+        keywords: [
+            'close',
+            'back',
+            'x'
+        ],
         params: [],
         quick_desc: 'closes an opened post.'
     },
     comments: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
-        desc_start: 'NOT AVAILABLE YET. This command prints the last 10 comments you\'ve made.',
+        desc_start: 'This command prints the last 10 comments you\'ve made.',
+        keywords: [
+            'comments',
+            'coms',
+            'co'
+        ],
         params: [
             {
                 name: 'quantity',
@@ -50,11 +68,18 @@ var commands = {
                 text: 'lets you decide which user the comments should be from.'
             }
         ],
-        quick_desc: 'prints the last comments you\'ve made (not available yet).'
+        quick_desc: 'prints the last comments you\'ve made.'
     },
     created: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
         desc_start: 'This command prints the last 10 posts created.',
+        keywords: [
+            'created',
+            'new',
+            'last',
+            'latest',
+            'c'
+        ],
         params: [
             {
                 name: 'quantity',
@@ -70,6 +95,10 @@ var commands = {
     feed: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
         desc_start: 'This command prints the 10 latest posts from your feed.',
+        keywords: [
+            'feed',
+            'f'
+        ],
         params: [
             {
                 name: 'quantity',
@@ -85,6 +114,9 @@ var commands = {
     help: {
         desc_end: '',
         desc_start: 'This command prints a list of all the existing commands.',
+        keywords: [
+            'help'
+        ],
         important_param: {
             name: 'command',
             text: 'prints a more in depth explanation for a given command.'
@@ -100,6 +132,10 @@ var commands = {
     hot: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
         desc_start: 'This command prints the 10 hotted posts.',
+        keywords: [
+            'hot',
+            'h'
+        ],
         params: [
             {
                 name: 'quantity',
@@ -115,12 +151,21 @@ var commands = {
     next: {
         desc_end: '',
         desc_start: 'This subcommand prints the post that comes after the currently opened post in a list of posts previously printed.',
+        keywords: [
+            'next',
+            'nxt',
+            'n'
+        ],
         params: [],
         quick_desc: 'opens the post following a currently opened post.'
     },
     open: {
         desc_end: '\nThis subcommand works with results obtained from the following commands: blog, comments, created, feed, hot, replies, trending.',
-        desc_start: 'This subcommand prints any chosen post from a list of posts. If no index is specified, the first post will be printed.',
+        desc_start: 'This subcommand prints any chosen post from a list of posts. If no index is specified, the first post will be printed. Writing \'open\' is not required, just writing the index is enough.',
+        keywords: [
+            'open',
+            'o'
+        ],
         params: [
             {
                 name: 'index',
@@ -129,9 +174,24 @@ var commands = {
         ],
         quick_desc: 'opens a post from a previously generated list of posts.'
     },
+    previous: {
+        desc_end: '',
+        desc_start: 'This subcommand prints the post that comes before the currently opened post in a list of posts previously printed.',
+        keywords: [
+            'previous',
+            'prev',
+            'p'
+        ],
+        params: [],
+        quick_desc: 'opens the post preceding a currently opened post.'
+    },
     replies: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
-        desc_start: 'NOT AVAILABLE YET. This command prints the 10 latest replies to your posts and comments.',
+        desc_start: 'This command prints the 10 latest replies to your posts and comments.',
+        keywords: [
+            'replies',
+            'r'
+        ],
         params: [
             {
                 name: 'quantity',
@@ -142,11 +202,15 @@ var commands = {
                 text: 'lets you decide to which user the replies should be.'
             }
         ],
-        quick_desc: 'prints the last replies to your posts and comments (not available yet).'
+        quick_desc: 'prints the last replies to your posts and comments.'
     },
     trending: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
         desc_start: 'This command prints the 10 most trending posts.',
+        keywords: [
+            'trending',
+            't'
+        ],
         params: [
             {
                 name: 'quantity',
@@ -193,32 +257,41 @@ function processDirectMessage(dm) {
     var userId = dm.sender.id;
     var cmd = dm.text.toLowerCase().replace(/ +/g, ' ').split(' ');
     
-    switch(cmd[0]) {
-        case 'blog':
+    switch(true) {
+        case commands.blog.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByBlog, userId, cmd);
             break;
-        case 'close':
+        case commands.close.keywords.includes(cmd[0]):
             handleClose(userId);
             break;
-        case 'created':
+        case commands.comments.keywords.includes(cmd[0]):
+            handleComments(userId, cmd[1], cmd[2]);
+            break;
+        case commands.created.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByCreated, userId, cmd);
             break;
-        case 'feed':
+        case commands.feed.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByFeed, userId, cmd);
             break;
-        case 'help':
+        case commands.help.keywords.includes(cmd[0]):
             handleHelp(userId, cmd[1]);
             break;
-        case 'hot':
+        case commands.hot.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByHot, userId, cmd);
             break;
-        case 'next':
+        case commands.next.keywords.includes(cmd[0]):
             handleNext(userId);
             break;
-        case 'open':
+        case commands.open.keywords.includes(cmd[0]):
             handleOpen(userId, cmd[1]);
             break;
-        case 'trending':
+        case commands.previous.keywords.includes(cmd[0]):
+            handlePrevious(userId);
+            break;
+        case commands.replies.keywords.includes(cmd[0]):
+            handleReplies(userId, cmd[1], cmd[2])
+            break;
+        case commands.trending.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByTrending, userId, cmd);
             break;
         default:
@@ -249,6 +322,78 @@ function handlePostsCommand(fn, userId, params) {
         }
         sendDirectMessage(userId, text);
         users[userId] = createUserObject(res, text, command, params);
+    });
+
+}
+
+// Handles the 'comments' command
+function handleComments(userId, param1, param2) {
+
+    var params = setParams([param1, param2]);
+
+    if(params[1] === '') {
+        sendDirectMessage(userId, 'Error: You have to specify a username.');
+        return;
+    }
+
+    MongoClient.connect(CONNECTION_STRING, function(err, client) {
+        if(!err) {
+            var db = client.db('SteemData');
+            db.collection('Comments')
+                .find({author: params[1]})
+                .sort({created: -1})
+                .limit(params[0])
+                .toArray(function(err, docs) {
+                    client.close();
+                    if(!err) {
+                        if(docs.length === 0) {
+                            sendDirectMessage(userId, 'No comment. Either the specified user never commented or the user \'' + params[1] + '\' doesn\'t exist.');
+                        }
+                        var text = '';
+                        for(var i = 0; i < docs.length; i++) {
+                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold') + docs[i].root_title + '\n';
+                        }
+                        sendDirectMessage(userId, text);
+                        users[userId] = createUserObject(docs, text, 'comments', params);
+                    }
+                });
+        }
+    });
+
+}
+
+// Handles the 'replies' command
+function handleReplies(userId, param1, param2) {
+
+    var params = setParams([param1, param2]);
+
+    if(params[1] === '') {
+        sendDirectMessage(userId, 'Error: You have to specify a username.'); 
+        return;
+    }
+
+    MongoClient.connect(CONNECTION_STRING, function(err, client) {
+        if(!err) {
+            var db = client.db('SteemData');
+            db.collection('Comments')
+                .find({parent_author: params[1]})
+                .sort({created: -1})
+                .limit(params[0])
+                .toArray(function(err, docs) {
+                    client.close();
+                    if(!err) {
+                        if(docs.length === 0) {
+                            sendDirectMessage(userId, 'No reply. Either the specified user never got any reply or the user \'' + params[1] + '\' doesn\'t exist.');
+                        }
+                        var text = '';
+                        for(var i = 0; i < docs.length; i++) {
+                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold') + docs[i].root_title + '\n';
+                        }
+                        sendDirectMessage(userId, text);
+                        users[userId] = createUserObject(docs, text, 'replies', params);
+                    }
+                });
+         }
     });
 
 }
@@ -285,20 +430,20 @@ function handleHelp(userId, command) {
             handleError(userId, command);
             return;
         }
-        response = commands[command].desc_start.concat(lineBreak);
+        response = commands[command].desc_start.concat(lineBreak, '\nUse this command through one of these keywords:\n', commands[command].keywords.map(keyword => parseTo(keyword, 'bold')).join(', '), lineBreak);
         if(commands[command].params.length > 0) {
             response = response.concat('\nParameters:');
             commands[command].params.forEach(param => {
-                response = response.concat('\n- ', param.name, ': ', param.text);
+                response = response.concat('\n- ', parseTo(param.name, 'bold'), ' : ', param.text);
             });
         } else response = response.concat('\nThere is no parameters available.')
-        response = response.concat(lineBreak, commands[command].desc_end);
+        respone = response.concat(commands[command].desc_end === '' ? '' : lineBreak, commands[command].desc_end);
     } else {
         response = 'Here is a list of existing commands:'
         var keys = Object.keys(commands);
         for(var i = 0; i < keys.length; i++){
-            response = response.concat('\n- ', keys[i], ' : ', commands[keys[i]].quick_desc);
-            if(commands[keys[i]].important_param) response = response.concat('\n- ', keys[i], ' ', commands[keys[i]].important_param.name, ' : ', commands[keys[i]].important_param.text);
+            response = response.concat('\n- ', parseTo(keys[i], 'bold'), ' : ', commands[keys[i]].quick_desc);
+            if(commands[keys[i]].important_param) response = response.concat('\n- ', parseTo(keys[i], 'bold'), ' ', parseTo(commands[keys[i]].important_param.name, 'bold'), ' : ', commands[keys[i]].important_param.text);
         }
     }
     sendDirectMessage(userId,response);
@@ -308,7 +453,7 @@ function handleHelp(userId, command) {
 // Handles the 'next' subcommand
 function handleNext(userId) {
     if(users.hasOwnProperty(userId)) {
-        var allowedCommandNames = ['blog', 'created', 'feed', 'hot', 'trending'];
+        var allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'replies', 'trending'];
         if(allowedCommandNames.includes(users[userId].last_command.name)) {
             var allowedSubcommandNames = ['open'];
             if(allowedSubcommandNames.includes(users[userId].last_subcommand.name)) {
@@ -317,23 +462,44 @@ function handleNext(userId) {
         }
     }
 }
+
+// Handles the 'previous' subcommand
+function handlePrevious(userId) {
+    if(users.hasOwnProperty(userId)) {
+        var allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'replies', 'trending'];
+        if(allowedCommandNames.includes(users[userId].last_command.name)) {
+            var allowedSubcommandNames = ['open'];
+            if(allowedSubcommandNames.includes(users[userId].last_subcommand.name)) {
+                handleOpen(userId, --users[userId].last_subcommand.param);
+            }
+        }
+    }
+}
+
 // Handles the 'open' subcommand
 function handleOpen(userId, index) {
     index = index ? index - 1 : 0;
     if(users.hasOwnProperty(userId)) {
         // Checking if the last command supports the 'open' subcommand
-        var allowedCommandNames = ['blog', 'created', 'feed', 'hot', 'trending'];
+        var allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'replies', 'trending'];
         if(allowedCommandNames.includes(users[userId].last_command.name)) {
             if(index >= 0 && index < users[userId].last_query_result.array.length) {
                 var post = users[userId].last_query_result.array[index];
-                var payoutLine = post.last_payout === '1970-01-01T00:00:00' ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
-                                                                            : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$'); 
-                var text = post.title
+                if(['comments', 'replies'].includes(users[userId].last_command.name)) {
+                    var payoutLine = post.last_payout.getTime() === 0 ? 'Pending Payout: ' + post.pending_payout_value.amount + '$'
+                                                                      : 'Author Payout: ' + post.total_payout_value.amount + '$';
+                    var postTitle = 'RE: ' + post.root_title;
+                } else {
+                    var payoutLine = post.last_payout === '1970-01-01T00:00:00' ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
+                                                                                : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$'); 
+                    var postTitle = post.title;
+                }
+                var text = postTitle
                            + '\n--------------------'
-                           + '\n' + convert(post.body)
+                           + '\n' + parse(post.body)
                            + '\n--------------------'
                            + '\n' + payoutLine
-                           + '\n' + post.net_votes + ' upvotes, ' + post.children + ' comments';
+                           + '\n' + post.net_votes + ' upvote' + (post.net_votes !== 1 ? 's' : '') + ', ' + post.children + ' comment' + (post.children !== 1 ? 's' : '');
                 sendDirectMessage(userId, text);
                 saveSubcommand(userId, 'open', ++index);
             }
@@ -352,7 +518,7 @@ function saveSubcommand(userId, name, param) {
 // Return a correct params array
 function setParams(params) {
     // If no params have been specified, set those params to default
-    if(params.length === 0) {
+    if(!params || params.length === 0) {
         params = [10, ''];
     } else {
         // If only one param exists, check which param it is and set the other one to default

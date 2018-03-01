@@ -19,6 +19,14 @@ var refs = {
         bold: '\u{1D5D8}',
         italic: '\u{1D60C}'
     },
+    'É': {
+        bold: '\u{1D5D8}\u0301',
+        italic: '\u{1D60C}\u0301'
+    },
+    'È': {
+        bold: '\u{1D5D8}\u0300',
+        italic: '\u{1D60C}\u0300'
+    },
     'F': {
         bold: '\u{1D5D9}',
         italic: '\u{1D60D}'
@@ -107,6 +115,10 @@ var refs = {
         bold: '\u{1D5EE}',
         italic: '\u{1D622}'
     },
+    'à': {
+        bold: '\u{1D5EE}\u0300',
+        italic: '\u{1D622}\u0300'
+    },
     'b': {
         bold: '\u{1D5EF}',
         italic: '\u{1D623}'
@@ -122,6 +134,14 @@ var refs = {
     'e': {
         bold: '\u{1D5F2}',
         italic: '\u{1D626}'
+    },
+    'é': {
+        bold: '\u{1D5F2}\u0301',
+        italic: '\u{1D626}\u0301'
+    },
+    'è': {
+        bold: '\u{1D5F2}\u0300',
+        italic: '\u{1D626}\u0300'
     },
     'f': {
         bold: '\u{1D5F3}',
@@ -209,21 +229,80 @@ var refs = {
     }
 }
 
-function convertTo(text, to) {
-    // Checks the chars individually and applies the required styling to them if supported
-    if(to === 'strikethrough')
-        return text.split('').map(char => char.concat('\u0335')).join('');
-    else 
-        return text.split('').map(char => refs[char] ? refs[char][to] : char).join('');
+var mathRefs = {
+    '\u{1D5D4}': '\u{1D63C}',
+    '\u{1D5D5}': '\u{1D63D}',
+    '\u{1D5D6}': '\u{1D63E}',
+    '\u{1D5D7}': '\u{1D63F}',
+    '\u{1D5D8}': '\u{1D640}',
+    '\u{1D5D9}': '\u{1D641}',
+    '\u{1D5DA}': '\u{1D642}',
+    '\u{1D5DB}': '\u{1D643}',
+    '\u{1D5DC}': '\u{1D644}',
+    '\u{1D5DD}': '\u{1D645}',
+    '\u{1D5DE}': '\u{1D646}',
+    '\u{1D5DF}': '\u{1D647}',
+    '\u{1D5E0}': '\u{1D648}',
+    '\u{1D5E1}': '\u{1D649}',
+    '\u{1D5E2}': '\u{1D64A}',
+    '\u{1D5E3}': '\u{1D64B}',
+    '\u{1D5E4}': '\u{1D64C}',
+    '\u{1D5E5}': '\u{1D64D}',
+    '\u{1D5E6}': '\u{1D64E}',
+    '\u{1D5E7}': '\u{1D64F}',
+    '\u{1D5E8}': '\u{1D650}',
+    '\u{1D5E9}': '\u{1D651}',
+    '\u{1D5EA}': '\u{1D652}',
+    '\u{1D5EB}': '\u{1D653}',
+    '\u{1D5EC}': '\u{1D654}',
+    '\u{1D5ED}': '\u{1D655}',
+    '\u{1D5EE}': '\u{1D656}',
+    '\u{1D5EF}': '\u{1D657}',
+    '\u{1D5F0}': '\u{1D658}',
+    '\u{1D5F1}': '\u{1D659}',
+    '\u{1D5F2}': '\u{1D65A}',
+    '\u{1D5F3}': '\u{1D65B}',
+    '\u{1D5F4}': '\u{1D65C}',
+    '\u{1D5F5}': '\u{1D65D}',
+    '\u{1D5F6}': '\u{1D65E}',
+    '\u{1D5F7}': '\u{1D65F}',
+    '\u{1D5F8}': '\u{1D660}',
+    '\u{1D5F9}': '\u{1D661}',
+    '\u{1D5FA}': '\u{1D662}',
+    '\u{1D5FB}': '\u{1D663}',
+    '\u{1D5FC}': '\u{1D664}',
+    '\u{1D5FD}': '\u{1D665}',
+    '\u{1D5FE}': '\u{1D666}',
+    '\u{1D5FF}': '\u{1D667}',
+    '\u{1D600}': '\u{1D668}',
+    '\u{1D601}': '\u{1D669}',
+    '\u{1D602}': '\u{1D66A}',
+    '\u{1D603}': '\u{1D66B}',
+    '\u{1D604}': '\u{1D66C}',
+    '\u{1D605}': '\u{1D66D}',
+    '\u{1D606}': '\u{1D66E}',
+    '\u{1D607}': '\u{1D66F}'
 }
 
 module.exports = function() {
 
-    this.convert = text => {
+    this.parseTo = (text, to) => {
+        // Checks the chars individually and applies the required styling to them if supported
+        if(to === 'strikethrough') 
+            return text.split('').map(char => char.concat('\u0335')).join('');
+        else {
+            if(to === 'italic') text = text.replace(/[\u{1D5D4}-\u{1D607}]/gu, match => mathRefs[match]);
+            return text.split('').map(char => refs[char] ? refs[char][to] : char).join('');
+        }
+    }
+
+    this.parse = text => {
+
+        var images = [];
 
         text = text
-            // Removing <center>, <div>, <p>, <sup> and <sub>
-            .replace(/<\/?(p|center|su[pb]|div( class="(text-justify|pull-(right|left))")?)>/g, '')
+            // Removing <center>, <div>, <table>, <ul>, <ol>, <p>, <sup>, <sub> and '<tr></tr>'
+            .replace(/<\/?(?:p|center|table|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>|<tr>\s*<\/tr>/g, '')
             // HR
             .replace(/(\n+|^) {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(\n+|$)/g, '$1----------$3')
             .replace(/<hr *\/?>/g, '\n----------\n')
@@ -236,27 +315,47 @@ module.exports = function() {
             .replace(/<\/?(i|em)>/g, '*')
             // -- Strikethrough : <del>, <s> and <strike>
             .replace(/<\/?(del|s(trike)?)>/g, '~~')
+            // -- List items : <li>
+            .replace(/\s?<li> *((?:(?!<li>).)*)<\/li>/g, '\n* $1')
             // -- Titles : <h1> to <h6>
             .replace(/<h([1-6])> *(.*)<\/h\1>/g, (match, quantity, content) => {
                 return '#'.repeat(quantity).concat(' ', content);
             })
-            // -- Images
-            .replace(/<img (?:alt="([^"]+)")? *src="([^"]+)" *(?:alt="([^"]+)")? *\/?>/g, '![$1$3]($2)')
-            // -- Links
-            .replace(/<a href="([^"]+)">([^<>]+)<\/a>/g, '[$2]($1)')
+            // -- Table rows (and their content) : <tr> and <td>
+            .replace(/\n?<tr>((?:(?!<tr>)[\s\S])*)<\/tr>/g, (match, content) => {
+                return '\n|' + content.replace(/<td>((?:(?!<td>)[\s\S])*)<\/td>/g, ' $1 |');
+            })
+            // -- Images : <img src="..." alt="...">
+            .replace(/<img +[^<>]*src="([^"]+)"[^<>]*\/?>/g, (match, source) => {
+                var alt = match.match(/alt="([^"]+)"/);
+                return '![' + (!alt ? '' : alt[1]) + '](' + source + ')';
+            })
+            // -- Links : <a href="...">
+            .replace(/<a +[^<>]*href="([^"]+)"[^<>]*>([^<>]+)<\/a>/g, '$2 ($1)')
+            // Putting images aside
+            .replace(/!\[([^\]]*)]\(([^)]+)\)/g, (match, alt, url) => {
+                return '@@@' + (images.push({alt: alt, url: url}) - 1) + '@@@';
+            })
             // Bold
-            .replace(/__(?=\S)([\s\S]*?\S)__(?!_)|\*\*(?=\S)([\s\S]*?\S)\*\*(?!\*)/g, match => {
-                return convertTo(match.substring(2, match.length - 2), 'bold');
+            .replace(/__(?=\S)([\s\S]*?\S)__(?!_)|\*\*(?=\S)([\s\S]*?\S)\*\*(?!\*)/g, (match, content1, content2) => {
+                return parseTo(content1 ? content1 : content2, 'bold');
             })
             // Italic
-            .replace(/_(?=\S)([\s\S]*?\S)_(?!_)|\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, match => {
-                return convertTo(match.substring(1, match.length - 1), 'italic');
+            .replace(/_(?=\S)([\s\S]*?\S)_(?!_)|\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, (match, content1, content2) => {
+                return parseTo(content1 ? content1 : content2, 'italic');
             })
+            // Strikethrough
             .replace(/~~(?=\S)([\s\S]*?\S)~~/g, (match, content) => {
-                return convertTo(content, 'strikethrough');
+                return parseTo(content, 'strikethrough');
             })
             // Lists (\u2022 = bullet point)
-            .replace(/(^|\n)[*-] +/g, '$1\u2022 ');
+            .replace(/(^|\n)[*-] +/g, '$1\u2022 ')
+            // Links (the excl argument is for checking that it's actually a link and not an image)
+            .replace(/\[([^\]]+)]\(([^)]+)\)/g, '$1 ($2)')
+            // DO LAST !!! Replacing placeholders by corresponding images
+            .replace(/@@@(\d+)@@@/g, (match, index) => {
+                return '![' + images[index].alt + '](' + images[index].url + ')';
+            });
 
         return text;
 
