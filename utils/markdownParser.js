@@ -286,17 +286,17 @@ var mathRefs = {
 
 module.exports = function() {
 
-    this.parseTo = (text, to) => {
-        // Checks the chars individually and applies the required styling to them if supported
-        if(to === 'strikethrough') 
-            return text.split('').map(char => char.concat('\u0335')).join('');
-        else {
+    this.parseTo = (text, to, allowed) => {
+        if(allowed) {
+            // Checks the chars individually and applies the required styling to them if supported
+            if(to === 'strikethrough') return text.split('').map(char => char.concat('\u0335')).join('');
             if(to === 'italic') text = text.replace(/[\u{1D5D4}-\u{1D607}]/gu, match => mathRefs[match]);
             return text.split('').map(char => refs[char] ? refs[char][to] : char).join('');
-        }
+        } 
+        return text;
     }
 
-    this.parse = text => {
+    this.parse = (text, stylingAllowed) => {
 
         var images = [];
 
@@ -338,15 +338,15 @@ module.exports = function() {
             })
             // Bold
             .replace(/__(?=\S)([\s\S]*?\S)__(?!_)|\*\*(?=\S)([\s\S]*?\S)\*\*(?!\*)/g, (match, content1, content2) => {
-                return parseTo(content1 ? content1 : content2, 'bold');
+                return parseTo(content1 ? content1 : content2, 'bold', stylingAllowed);
             })
             // Italic
             .replace(/_(?=\S)([\s\S]*?\S)_(?!_)|\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, (match, content1, content2) => {
-                return parseTo(content1 ? content1 : content2, 'italic');
+                return parseTo(content1 ? content1 : content2, 'italic', stylingAllowed);
             })
             // Strikethrough
             .replace(/~~(?=\S)([\s\S]*?\S)~~/g, (match, content) => {
-                return parseTo(content, 'strikethrough');
+                return parseTo(content, 'strikethrough', stylingAllowed);
             })
             // Lists (\u2022 = bullet point)
             .replace(/(^|\n)[*-] +/g, '$1\u2022 ')

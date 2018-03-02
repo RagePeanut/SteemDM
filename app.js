@@ -1,7 +1,9 @@
 var Twit = require('twit');
 var steem = require('steem');
 var MongoClient = require('mongodb').MongoClient;
+var fs = require('fs');
 
+require('./utils/factory')();
 require('./utils/markdownParser')();
 
 // Authentifying
@@ -204,6 +206,26 @@ var commands = {
         ],
         quick_desc: 'prints the last replies to your posts and comments.'
     },
+    set: {
+        desc_end: '\nThese parameters must be used separetely and, contrary to all other commands, their name must be written. Don\'t forget to write a value after those parameters !',
+        desc_start: 'This command lets you change your settings.',
+        keywords: [
+            'set',
+            'settings',
+            's'
+        ],
+        params: [
+            {
+                name: 'steem_account',
+                text: 'sets a default Steem account so you don\'t have to type it when looking at your blog, feed, comments and replies. This parameter must be followed by a Steem username.'
+            },
+            {
+                name: 'styling',
+                text: 'switches the text styling (bold and italic) on or off. This parameter can be followed by \'true\' (for \'on\') or \'false\' (for \'off\'). If no value is given, it will simply switch its state.'
+            }
+        ],
+        quick_desc: 'lets the user change his settings.'
+    },
     trending: {
         desc_end: '\nThese parameters can be used together. No specific order is required.',
         desc_start: 'This command prints the 10 most trending posts.',
@@ -226,6 +248,8 @@ var commands = {
 }
 
 var users = {}
+
+var settings = {}
 
 // Creating a user stream
 var stream = twitter.stream('user');
@@ -256,44 +280,63 @@ function processDirectMessage(dm) {
 
     var userId = dm.sender.id;
     var cmd = dm.text.toLowerCase().replace(/ +/g, ' ').split(' ');
+
+    if(!settings[userId]) settings[userId] = createUserSettingsObject(false, true);
     
     switch(true) {
+        // Blog
         case commands.blog.keywords.includes(cmd[0]):
-            handlePostsCommand(steem.api.getDiscussionsByBlog, userId, cmd);
+            handleUserRelatedPostsCommand(steem.api.getDiscussionsByBlog, userId, cmd);
             break;
+        // Close
         case commands.close.keywords.includes(cmd[0]):
             handleClose(userId);
             break;
+        // Comments
         case commands.comments.keywords.includes(cmd[0]):
             handleComments(userId, cmd[1], cmd[2]);
             break;
+        // Created
         case commands.created.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByCreated, userId, cmd);
             break;
+        // Feed
         case commands.feed.keywords.includes(cmd[0]):
-            handlePostsCommand(steem.api.getDiscussionsByFeed, userId, cmd);
+            handleUserRelatedPostsCommand(steem.api.getDiscussionsByFeed, userId, cmd);
             break;
+        // Help
         case commands.help.keywords.includes(cmd[0]):
             handleHelp(userId, cmd[1]);
             break;
+        // Hot
         case commands.hot.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByHot, userId, cmd);
             break;
+        // Next
         case commands.next.keywords.includes(cmd[0]):
             handleNext(userId);
             break;
+        // Open
         case commands.open.keywords.includes(cmd[0]):
             handleOpen(userId, cmd[1]);
             break;
+        // Previous
         case commands.previous.keywords.includes(cmd[0]):
             handlePrevious(userId);
             break;
+        // Replies
         case commands.replies.keywords.includes(cmd[0]):
-            handleReplies(userId, cmd[1], cmd[2])
+            handleReplies(userId, cmd[1], cmd[2]);
             break;
+        // Set
+        case commands.set.keywords.includes(cmd[0]):
+            handleSet(userId, cmd[1], cmd[2]);
+            break;
+        // Trending
         case commands.trending.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByTrending, userId, cmd);
             break;
+        // Error || 'Open' shortcut
         default:
             // Check if the command is a number, if it is then it's an 'open' shortcut
             // Else it's a wrong command
@@ -302,12 +345,44 @@ function processDirectMessage(dm) {
 
 }
 
-// Handles all the commands that request for posts since they all have the same request/response structure
+// Handles all the commands that request for posts (except user related ones) since they all have the same request/response structure
 function handlePostsCommand(fn, userId, params) {
 
     var command = params.shift();
 
     params = setParams(params);
+
+    var query = {
+        tag: params[1],
+        limit: params[0]
+    };
+
+    fn(query, function(err, res) {
+        if(err) console.log(err);
+        var text = '';
+        for(var i = 0; i < res.length; i++) {
+            text += (i + 1) + '. ' + res[i].author + ' : ' + res[i].title + '\n';
+        }
+        sendDirectMessage(userId, text);
+        users[userId] = createUserObject(res, text, command, params);
+    });
+
+}
+
+// Handles all the comments that request for posts related to a specific user since they all have the same request/response structure
+function handleUserRelatedPostsCommand(fn, userId, params) {
+
+    var command = params.shift();
+
+    params = setParams(params);
+
+    if(params[1] === '') {
+        params[1] = settings[userId].steem_account;
+        if(!params[1]) {
+            sendDirectMessage(userId, 'Error: You have to specify a username.');
+            return;
+        }
+    }
 
     var query = {
         tag: params[1],
@@ -332,8 +407,11 @@ function handleComments(userId, param1, param2) {
     var params = setParams([param1, param2]);
 
     if(params[1] === '') {
-        sendDirectMessage(userId, 'Error: You have to specify a username.');
-        return;
+        params[1] = settings[userId].steem_account;
+        if(!params[1]) {
+            sendDirectMessage(userId, 'Error: You have to specify a username.');
+            return;
+        }
     }
 
     MongoClient.connect(CONNECTION_STRING, function(err, client) {
@@ -351,7 +429,7 @@ function handleComments(userId, param1, param2) {
                         }
                         var text = '';
                         for(var i = 0; i < docs.length; i++) {
-                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold') + docs[i].root_title + '\n';
+                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold', settings[userId].styling) + docs[i].root_title + '\n';
                         }
                         sendDirectMessage(userId, text);
                         users[userId] = createUserObject(docs, text, 'comments', params);
@@ -368,8 +446,11 @@ function handleReplies(userId, param1, param2) {
     var params = setParams([param1, param2]);
 
     if(params[1] === '') {
-        sendDirectMessage(userId, 'Error: You have to specify a username.'); 
-        return;
+        params[1] = settings[userId].steem_account;
+        if(!params[1]) {
+            sendDirectMessage(userId, 'Error: You have to specify a username.');
+            return;
+        }
     }
 
     MongoClient.connect(CONNECTION_STRING, function(err, client) {
@@ -387,7 +468,7 @@ function handleReplies(userId, param1, param2) {
                         }
                         var text = '';
                         for(var i = 0; i < docs.length; i++) {
-                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold') + docs[i].root_title + '\n';
+                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold', settings[userId].styling) + docs[i].root_title + '\n';
                         }
                         sendDirectMessage(userId, text);
                         users[userId] = createUserObject(docs, text, 'replies', params);
@@ -424,30 +505,53 @@ function handleError(userId, command) {
 function handleHelp(userId, command) {
 
     var response = '';
+    var lineBreak = '\n--------------------';
     if(command){
-        var lineBreak = '\n--------------------';
         if(!commands[command]) {
             handleError(userId, command);
             return;
         }
-        response = commands[command].desc_start.concat(lineBreak, '\nUse this command through one of these keywords:\n', commands[command].keywords.map(keyword => parseTo(keyword, 'bold')).join(', '), lineBreak);
+        response = commands[command].desc_start.concat(lineBreak, '\nUse this command through one of these keywords:\n', commands[command].keywords.map(keyword => parseTo(keyword, 'bold', settings[userId].styling)).join(', '), lineBreak);
         if(commands[command].params.length > 0) {
             response = response.concat('\nParameters:');
             commands[command].params.forEach(param => {
-                response = response.concat('\n- ', parseTo(param.name, 'bold'), ' : ', param.text);
+                response = response.concat('\n- ', parseTo(param.name, 'bold', settings[userId].styling), ' : ', param.text);
             });
         } else response = response.concat('\nThere is no parameters available.')
-        respone = response.concat(commands[command].desc_end === '' ? '' : lineBreak, commands[command].desc_end);
+        response = response.concat(commands[command].desc_end === '' ? '' : lineBreak, commands[command].desc_end);
     } else {
         response = 'Here is a list of existing commands:'
         var keys = Object.keys(commands);
         for(var i = 0; i < keys.length; i++){
-            response = response.concat('\n- ', parseTo(keys[i], 'bold'), ' : ', commands[keys[i]].quick_desc);
-            if(commands[keys[i]].important_param) response = response.concat('\n- ', parseTo(keys[i], 'bold'), ' ', parseTo(commands[keys[i]].important_param.name, 'bold'), ' : ', commands[keys[i]].important_param.text);
+            response = response.concat('\n- ', parseTo(keys[i], 'bold', settings[userId].styling), ' : ', commands[keys[i]].quick_desc);
+            if(commands[keys[i]].important_param) response = response.concat('\n- ', parseTo(keys[i], 'bold', settings[userId].styling), ' ', parseTo(commands[keys[i]].important_param.name, 'bold', settings[userId].styling), ' : ', commands[keys[i]].important_param.text);
         }
+        response = response.concat(lineBreak, '\nIf you can\'t see the commands names, type \'set styling false\'.');
     }
     sendDirectMessage(userId,response);
 
+}
+
+// Handles the 'set' command
+function handleSet(userId, setting, value) {
+    // Checking if the setting received is a real setting
+    if(settings[userId].hasOwnProperty(setting)) {
+        // If no value has been typed
+        if(!value) {
+            if(setting === 'steem_account') sendDirectMessage(userId, 'The steem_account setting requires a username to be specified.');
+            else {
+                saveSettings(userId, setting, !settings[userId][setting]);
+                sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.');
+            }
+        } else {
+            // Checking if the value is not a 'false' string and making it a boolean
+            value = value !== 'false';
+            saveSettings(userId, setting, value);
+            sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.');
+        }
+    } else {
+        sendDirectMessage(userId, 'The parameter \'' + setting + '\' is not a setting. Type \'help set\' to get a list of available settings.');
+    }
 }
 
 // Handles the 'next' subcommand
@@ -496,7 +600,7 @@ function handleOpen(userId, index) {
                 }
                 var text = postTitle
                            + '\n--------------------'
-                           + '\n' + parse(post.body)
+                           + '\n' + parse(post.body, settings[userId].styling)
                            + '\n--------------------'
                            + '\n' + payoutLine
                            + '\n' + post.net_votes + ' upvote' + (post.net_votes !== 1 ? 's' : '') + ', ' + post.children + ' comment' + (post.children !== 1 ? 's' : '');
@@ -515,7 +619,7 @@ function saveSubcommand(userId, name, param) {
     };
 }
 
-// Return a correct params array
+// Returns a correct params array
 function setParams(params) {
     // If no params have been specified, set those params to default
     if(!params || params.length === 0) {
@@ -554,39 +658,27 @@ async function sendDirectMessage(userId, text) {
     }
 }
 
-// Creates a Direct Message Object
-function createDirectMessageObject(userId, text) {
-    return {
-        event: {
-            type: 'message_create',
-            message_create: {
-                target: {
-                    recipient_id: userId
-                },
-                message_data: {
-                    text: text
-                }
-            }
+// Gets the settings previously saved in ./data/settings.json and saves them in the settings object
+function getSettings() {
+    fs.readFile('./data/settings.json', 'utf-8', (err, data) => {
+        if(err) {
+            fs.writeFile('./data/settings.json', JSON.stringify(settings), err => {
+                if(err) console.log(err);
+            });
+        } else {
+            settings = JSON.parse(data);
         }
-    }
+    });
 }
 
-// Creates an User Object
-function createUserObject(result_array, result_text, cmd_name, cmd_params) {
-    return {
-        last_query_result: {
-            array: result_array,
-            text: result_text
-        },
-        last_command: {
-            name: cmd_name,
-            params: cmd_params
-        },
-        last_subcommand: {
-            name: '',
-            param: ''
-        }
-    }
+// Saves new settings in ./data/settings.json and the settings object
+function saveSettings(userId, setting, value) {
+    settings[userId][setting] = value;
+    fs.writeFile('./data/settings.json', JSON.stringify(settings), err => {
+        if(err) console.log(err);
+    });
 }
+
+getSettings();
 
 console.log('App is running');
