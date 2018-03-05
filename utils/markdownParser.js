@@ -299,6 +299,7 @@ module.exports = function() {
     this.parse = (text, stylingAllowed) => {
 
         const images = [];
+        const links = [];
 
         text = text
             // Removing <center>, <div>, <table>, <ul>, <ol>, <p>, <sup>, <sub> and '<tr></tr>'
@@ -336,6 +337,10 @@ module.exports = function() {
             .replace(/!\[([^\]]*)]\(([^)]+)\)/g, (match, alt, url) => {
                 return '@@@' + (images.push({alt: alt, url: url}) - 1) + '@@@';
             })
+            // Links 
+            .replace(/\[([^\]]+)]\(([^)]+)\)/g, (match, text, link) => {
+                return text + ' %%%' + (links.push(link) - 1) + '%%%';
+            })
             // Bold
             .replace(/__(?=\S)([\s\S]*?\S)__(?!_)|\*\*(?=\S)([\s\S]*?\S)\*\*(?!\*)/g, (match, content1, content2) => {
                 return parseTo(content1 ? content1 : content2, 'bold', stylingAllowed);
@@ -350,8 +355,10 @@ module.exports = function() {
             })
             // Lists (\u2022 = bullet point)
             .replace(/(^|\n)[*-] +/g, '$1\u2022 ')
-            // Links (the excl argument is for checking that it's actually a link and not an image)
-            .replace(/\[([^\]]+)]\(([^)]+)\)/g, '$1 ($2)')
+            // DO BEFORE LAST !!! Replacing placeholders by corresponding links
+            .replace(/%%%(\d+)%%%/g, (match, index) => {
+                return '(' + links[index] + ')';
+            })
             // DO LAST !!! Replacing placeholders by corresponding images
             .replace(/@@@(\d+)@@@/g, (match, index) => {
                 return '![' + images[index].alt + '](' + images[index].url + ')';
