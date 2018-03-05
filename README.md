@@ -31,7 +31,9 @@ npm start
 ## Special thanks to
 **Steemit** for [steem.js](https://github.com/steemit/steem-js)
 
-**ttezel** for [Twit](https://github.com/ttezel/twit)
+**Tolga Tezel** for [Twit](https://github.com/ttezel/twit)
+
+**MongoDB** for [MongoDB](https://github.com/mongodb/node-mongodb-native)
 
 ## Social networks
 **Steemit:** https://steemit.com/@ragepeanut
