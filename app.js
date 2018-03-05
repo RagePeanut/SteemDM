@@ -544,9 +544,12 @@ function handleSet(userId, setting, value) {
                 sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.');
             }
         } else {
-            // Checking if the value is not a 'false' string and making it a boolean
-            value = value !== 'false';
-            saveSettings(userId, setting, value);
+            if(setting === 'steem_account') saveSettings(userId, setting, value);
+            else {
+                // Checking if the value is not a 'false' string and making it a boolean
+                value = value !== 'false';
+                saveSettings(userId, setting, value);
+            }
             sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.');
         }
     } else {
@@ -671,7 +674,7 @@ function getSettings() {
     });
 }
 
-// Saves new settings in ./data/settings.json and the settings object
+// Saves new settings in ./data/settings.json and in the settings object
 function saveSettings(userId, setting, value) {
     settings[userId][setting] = value;
     fs.writeFile('./data/settings.json', JSON.stringify(settings), err => {
