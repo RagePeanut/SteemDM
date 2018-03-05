@@ -1,0 +1,235 @@
+{
+    "blog": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the last 10 posts you've made.",
+        "keywords": [
+            "blog",
+            "b"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of posts being printed."
+            },
+            {
+                "name": "user",
+                "text": "lets you decide which user the blog should be from."
+            }
+        ],
+        "quick_desc": "prints the last posts you've made."
+    },
+    "close": {
+        "desc_end": "",
+        "desc_start": "This subcommand closes an opened post and reprints the list of posts previously printed.",
+        "keywords": [
+            "close",
+            "back",
+            "x"
+        ],
+        "params": [],
+        "quick_desc": "closes an opened post."
+    },
+    "comments": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the last 10 comments you've made.",
+        "keywords": [
+            "comments",
+            "coms",
+            "co"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of comments being printed."
+            },
+            {
+                "name": "user",
+                "text": "lets you decide which user the comments should be from."
+            }
+        ],
+        "quick_desc": "prints the last comments you've made."
+    },
+    "created": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the last 10 posts created.",
+        "keywords": [
+            "created",
+            "new",
+            "last",
+            "latest",
+            "c"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of posts being printed."
+            },
+            {
+                "name": "tag",
+                "text": "lets you choose a specific tag the posts must have."
+            }
+        ],
+        "quick_desc": "prints the last created posts."
+    },
+    "feed": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the 10 latest posts from your feed.",
+        "keywords": [
+            "feed",
+            "f"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of posts being printed."
+            },
+            {
+                "name": "user",
+                "text": "lets you decide which user the feed should be from."
+            }
+        ],
+        "quick_desc": "prints the last posts from your feed."
+    },
+    "help": {
+        "desc_end": "",
+        "desc_start": "This command prints a list of all the existing commands.",
+        "keywords": [
+            "help"
+        ],
+        "important_param": {
+            "name": "command",
+            "text": "prints a more in depth explanation for a given command."
+        },
+        "params": [
+            {
+                "name": "command",
+                "text": "prints a more in depth explanation for a given command."
+            }
+        ],
+        "quick_desc": "prints a list of existing commands."
+    },
+    "hot": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the 10 hotted posts.",
+        "keywords": [
+            "hot",
+            "h"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of posts being printed."
+            },
+            {
+                "name": "tag",
+                "text": "lets you choose a specific tag the posts must have."
+            }
+        ],
+        "quick_desc": "prints the hottest posts."
+    },
+    "next": {
+        "desc_end": "",
+        "desc_start": "This subcommand prints the post that comes after the currently opened post in a list of posts previously printed.",
+        "keywords": [
+            "next",
+            "nxt",
+            "n"
+        ],
+        "params": [],
+        "quick_desc": "opens the post following a currently opened post."
+    },
+    "open": {
+        "desc_end": "\nThis subcommand works with results obtained from the following commands: blog, comments, created, feed, hot, replies, trending.",
+        "desc_start": "This subcommand prints any chosen post from a list of posts. If no index is specified, the first post will be printed. Writing 'open' is not required, just writing the index is enough.",
+        "keywords": [
+            "open",
+            "o"
+        ],
+        "params": [
+            {
+                "name": "index",
+                "text": "lets you decide which post to open by specifying its index from a previously generated list of posts."
+            }
+        ],
+        "quick_desc": "opens a post from a previously generated list of posts."
+    },
+    "previous": {
+        "desc_end": "",
+        "desc_start": "This subcommand prints the post that comes before the currently opened post in a list of posts previously printed.",
+        "keywords": [
+            "previous",
+            "prev",
+            "p"
+        ],
+        "params": [],
+        "quick_desc": "opens the post preceding a currently opened post."
+    },
+    "replies": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the 10 latest replies to your posts and comments.",
+        "keywords": [
+            "replies",
+            "r"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of replies being printed."
+            },
+            {
+                "name": "user",
+                "text": "lets you decide to which user the replies should be."
+            }
+        ],
+        "quick_desc": "prints the last replies to your posts and comments."
+    },
+    "set": {
+        "desc_end": "\nThese parameters must be used separetely and, contrary to all other commands, their name must be written. Don't forget to write a value after those parameters !",
+        "desc_start": "This command lets you change your settings.",
+        "keywords": [
+            "set",
+            "settings",
+            "s"
+        ],
+        "params": [
+            {
+                "name": "steem_account",
+                "text": "sets a default Steem account so you don't have to type it when looking at your blog, feed, comments and replies. This parameter must be followed by a Steem username."
+            },
+            {
+                "name": "styling",
+                "text": "switches the text styling (bold and italic) on or off. This parameter can be followed by 'true' (for 'on') or 'false' (for 'off'). If no value is given, it will simply switch its state."
+            }
+        ],
+        "quick_desc": "lets the user change his settings.",
+        "settings": {
+            "booleans": [
+                "styling"
+            ],
+            "strings": {
+                "steem_account": {
+                    "required": "a username"
+                }
+            }
+        }
+    },
+    "trending": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the 10 most trending posts.",
+        "keywords": [
+            "trending",
+            "t"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of posts being printed."
+            },
+            {
+                "name": "tag",
+                "text": "lets you choose a specific tag the posts must have."
+            }
+        ],
+        "quick_desc": "prints the most trending posts."
+    }
+}

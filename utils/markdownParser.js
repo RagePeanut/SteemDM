@@ -1,4 +1,4 @@
-var refs = {
+const refs = {
     'A': {
         bold: '\u{1D5D4}',
         italic: '\u{1D608}'
@@ -229,7 +229,7 @@ var refs = {
     }
 }
 
-var mathRefs = {
+const mathRefs = {
     '\u{1D5D4}': '\u{1D63C}',
     '\u{1D5D5}': '\u{1D63D}',
     '\u{1D5D6}': '\u{1D63E}',
@@ -298,7 +298,7 @@ module.exports = function() {
 
     this.parse = (text, stylingAllowed) => {
 
-        var images = [];
+        const images = [];
 
         text = text
             // Removing <center>, <div>, <table>, <ul>, <ol>, <p>, <sup>, <sub> and '<tr></tr>'
@@ -327,7 +327,7 @@ module.exports = function() {
             })
             // -- Images : <img src="..." alt="...">
             .replace(/<img +[^<>]*src="([^"]+)"[^<>]*\/?>/g, (match, source) => {
-                var alt = match.match(/alt="([^"]+)"/);
+                const alt = match.match(/alt="([^"]+)"/);
                 return '![' + (!alt ? '' : alt[1]) + '](' + source + ')';
             })
             // -- Links : <a href="...">
