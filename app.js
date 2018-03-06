@@ -70,7 +70,7 @@ function processDirectMessage(dm) {
             break;
         // Comments
         case commands.comments.keywords.includes(cmd[0]):
-            handleComments(userId, cmd[1], cmd[2]);
+            handleComments(userId, cmd);
             break;
         // Created
         case commands.created.keywords.includes(cmd[0]):
@@ -102,7 +102,7 @@ function processDirectMessage(dm) {
             break;
         // Replies
         case commands.replies.keywords.includes(cmd[0]):
-            handleReplies(userId, cmd[1], cmd[2]);
+            handleReplies(userId, cmd);
             break;
         // Set
         case commands.set.keywords.includes(cmd[0]):
@@ -178,9 +178,11 @@ function handleUserRelatedPostsCommand(fn, userId, params) {
 }
 
 // Handles the 'comments' command
-function handleComments(userId, param1, param2) {
+function handleComments(userId, params) {
 
-    const params = setParams([param1, param2]);
+    params.shift();
+
+    params = setParams(params);
 
     if(params[1] === '') {
         params[1] = settings[userId].steem_account;
@@ -217,9 +219,11 @@ function handleComments(userId, param1, param2) {
 }
 
 // Handles the 'replies' command
-function handleReplies(userId, param1, param2) {
+function handleReplies(userId, params) {
 
-    const params = setParams([param1, param2]);
+    params.shift();
+
+    params = setParams(params);
 
     if(params[1] === '') {
         params[1] = settings[userId].steem_account;
@@ -310,49 +314,21 @@ function handleHelp(userId, command) {
 
 // Handles the 'set' command
 function handleSet(userId, setting, value) {
-    // Checking if the setting received is a real setting
-    if(settings[userId].hasOwnProperty(setting)) {
-        // If no value has been typed
-        if(!value) {
-            if(setting === 'steem_account') sendDirectMessage(userId, 'The steem_account setting requires a username to be specified.');
-            else {
-                saveSettings(userId, setting, !settings[userId][setting]);
-                sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.');
-            }
-        } else {
-            if(setting === 'steem_account') saveSettings(userId, setting, value);
-            else {
-                // Checking if the value is not a 'false' string and making it a boolean
-                value = value !== 'false';
-                saveSettings(userId, setting, value);
-            }
-            sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.');
-        }
+    // Boolean setting
+    if(commands.set.settings.booleans.includes(setting)) {
+        saveSettings(userId, setting, !settings[userId][setting]);
+        sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.')
+    // String setting
+    } else if(commands.set.settings.strings.hasOwnProperty(setting)) {
+        // A value has been passed
+        if(value) {
+            saveSettings(userId, setting, value);
+            sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + value + '\'.');
+        // A value has not been passed
+        } else sendDirectMessage(userId, 'The setting \'' + setting + '\' requires ' + commands.set.settings.strings[setting].required + ' to be specified.');
+    // The parameter is not a setting
     } else {
         sendDirectMessage(userId, 'The parameter \'' + setting + '\' is not a setting. Type \'help set\' to get a list of available settings.');
-    }
-}
-
-// Handles the 'set' command
-function handleSet(userId, setting, value) {
-    // Checking if the setting received is a real setting
-    if(settings[userId].hasOwnProperty(setting)) {
-        // Boolean setting
-        if(commands.set.settings.booleans.includes(setting)) {
-            saveSettings(userId, setting, !settings[userId][setting]);
-            sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.')
-        // String setting
-        } else if(commands.set.settings.strings.hasOwnProperty(setting)) {
-            // A value has been passed
-            if(value) {
-                saveSettings(userId, setting, value);
-                sendDirectMessage(userId, 'The setting \'' + setting + '\' has been successfully set to \'' + value + '\'.');
-            // A value has not been passed
-            } else sendDirectMessage(userId, 'The setting \'' + setting + '\' requires ' + commands.set.settings.strings[setting].required + ' to be specified.');
-        // The parameter is not a setting
-        } else {
-            sendDirectMessage(userId, 'The parameter \'' + setting + '\' is not a setting. Type \'help set\' to get a list of available settings.');
-        }
     }
 }
 
