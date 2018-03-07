@@ -133,7 +133,8 @@
         "keywords": [
             "next",
             "nxt",
-            "n"
+            "n",
+            "+"
         ],
         "params": [],
         "quick_desc": "opens the post following a currently opened post."
@@ -159,7 +160,8 @@
         "keywords": [
             "previous",
             "prev",
-            "p"
+            "p",
+            "-"
         ],
         "params": [],
         "quick_desc": "opens the post preceding a currently opened post."

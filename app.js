@@ -30,31 +30,17 @@ let settings = {}
 // Creating a user stream
 const stream = twitter.stream('user');
 
-// Following any user following the account
-stream.on('follow', event => {
-    // The follow listener is triggered for the bot and the user
-    // We therefore need to verify that the follow is from an user
-    if(event.source.id != APP_ID) follow(event.source.id);
-});
-
 // Reacting to direct messages
 stream.on('direct_message', event => {
     // The direct message listener is triggered for messages sent by both the user and the bot
     // We therefore need to verify that the message is from the user
-    if(event.direct_message.sender.id != APP_ID) processDirectMessage(event.direct_message);
+    if(event.direct_message.sender.id_str != APP_ID) processDirectMessage(event.direct_message);
 });
-
-// Follows an user based on his id
-function follow(userId) {
-    twitter.post('friendships/create', {user_id: userId, follow: true}, error => {
-        if(error) console.log(error);
-    });
-}
 
 // Checks what the command is and calls the appropriate function
 function processDirectMessage(dm) {
 
-    const userId = dm.sender.id;
+    const userId = dm.sender.id_str;
     const cmd = dm.text.toLowerCase().replace(/ +/g, ' ').split(' ');
 
     if(!settings[userId]) settings[userId] = createUserSettingsObject(false, true);
@@ -370,11 +356,11 @@ function handleOpen(userId, index) {
                 let payoutline, postTitle;
                 if(['comments', 'replies'].includes(users[userId].last_command.name)) {
                     payoutLine = post.last_payout.getTime() === 0 ? 'Pending Payout: ' + post.pending_payout_value.amount + '$'
-                                                                      : 'Author Payout: ' + post.total_payout_value.amount + '$';
+                                                                  : 'Author Payout: ' + post.total_payout_value.amount + '$';
                     postTitle = 'RE: ' + post.root_title;
                 } else {
                     payoutLine = post.last_payout === '1970-01-01T00:00:00' ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
-                                                                                : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$'); 
+                                                                            : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$'); 
                     postTitle = post.title;
                 }
                 let text = postTitle
@@ -429,7 +415,7 @@ function setParams(params) {
 async function sendDirectMessage(userId, text) {
     // Splitting the string into multiple messages if it's too long
     if(text.length > MAX_LENGTH) {
-        twitter.post('direct_messages/events/new', createDirectMessageObject(userId,text.substr(0, MAX_LENGTH)), () => {
+        twitter.post('direct_messages/events/new', createDirectMessageObject(userId, text.substr(0, MAX_LENGTH)), () => {
             sendDirectMessage(userId, text.substr(MAX_LENGTH, text.length - MAX_LENGTH));
         });
     } else {
