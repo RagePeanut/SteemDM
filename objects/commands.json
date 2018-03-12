@@ -127,6 +127,30 @@
         ],
         "quick_desc": "prints the hottest posts."
     },
+    "mentions": {
+        "desc_end": "\nThese parameters can be used together. No specific order is required.",
+        "desc_start": "This command prints the last 10 posts and comments you were mentioned in.",
+        "keywords": [
+            "mentions",
+            "me",
+            "m"
+        ],
+        "params": [
+            {
+                "name": "quantity",
+                "text": "lets you decide the quantity of posts and/or comments being printed."
+            },
+            {
+                "name": "type",
+                "text": "lets you decide whether you want to get only posts ('posts' or 'p') or only comments ('comments', 'coms' or 'c'). By default, this command will print both."
+            },
+            {
+                "name": "user",
+                "text": "lets you decide which user the posts and/or comments should mention."
+            }
+        ],
+        "quick_desc": "prints the last posts and comments you were mentioned in."
+    },
     "next": {
         "desc_end": "",
         "desc_start": "This subcommand prints the post that comes after the currently opened post in a list of posts previously printed.",

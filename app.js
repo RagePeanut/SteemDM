@@ -56,7 +56,7 @@ function processDirectMessage(dm) {
             break;
         // Comments
         case commands.comments.keywords.includes(cmd[0]):
-            handleComments(userId, cmd);
+            handleUserRelatedPostsCommand(steem.api.getDiscussionsByComments, userId, cmd);
             break;
         // Created
         case commands.created.keywords.includes(cmd[0]):
@@ -66,6 +66,14 @@ function processDirectMessage(dm) {
         case commands.feed.keywords.includes(cmd[0]):
             handleUserRelatedPostsCommand(steem.api.getDiscussionsByFeed, userId, cmd);
             break;
+        // Followers
+        // case commands.followers.keywords.includes(cmd[0]):
+        //     handleFollowers(userId, cmd[1]);
+        //     break;
+        // // Followees
+        // case commands.followees.keywords.includes(cmd[0]):
+        //     handleFollowees(userId, cmd[1]);
+        //     break;
         // Help
         case commands.help.keywords.includes(cmd[0]):
             handleHelp(userId, cmd[1]);
@@ -73,6 +81,10 @@ function processDirectMessage(dm) {
         // Hot
         case commands.hot.keywords.includes(cmd[0]):
             handlePostsCommand(steem.api.getDiscussionsByHot, userId, cmd);
+            break;
+        // Mentions
+        case commands.mentions.keywords.includes(cmd[0]):
+            handleMentions(userId, cmd);
             break;
         // Next
         case commands.next.keywords.includes(cmd[0]):
@@ -114,16 +126,16 @@ function handlePostsCommand(fn, userId, params) {
 
     params = setParams(params);
 
-    const query = {
+    let query = {
         tag: params[1],
         limit: params[0]
-    };
+    }
 
     fn(query, function(err, res) {
         if(err) console.log(err);
         let text = '';
         for(let i = 0; i < res.length; i++) {
-            text += (i + 1) + '. ' + res[i].author + ' : ' + res[i].title + '\n';
+            text += (i + 1) + '. ' + res[i].author + parseTo(' posted ', 'bold', settings[userId].styling) + res[i].title + '\n';
         }
         sendDirectMessage(userId, text);
         users[userId] = createUserObject(res, text, command, params);
@@ -147,15 +159,23 @@ function handleUserRelatedPostsCommand(fn, userId, params) {
     }
 
     const query = {
-        tag: params[1],
         limit: params[0]
     };
+
+    let inBetween;
+    if(commands.comments.keywords.includes(command)) {
+        query.start_author = params[1];
+        inBetween = parseTo(' commented on ', 'bold', settings[userId].styling);
+    } else {
+        query.tag = params[1];
+        inBetween = parseTo(' posted ', 'bold', settings[userId].styling);
+    }
 
     fn(query, function(err, res) {
         if(err) console.log(err);
         let text = '';
         for(let i = 0; i < res.length; i++) {
-            text += (i + 1) + '. ' + res[i].author + ' : ' + res[i].title + '\n';
+            text += (i + 1) + '. @' + res[i].author + inBetween + res[i].root_title + '\n';
         }
         sendDirectMessage(userId, text);
         users[userId] = createUserObject(res, text, command, params);
@@ -163,12 +183,35 @@ function handleUserRelatedPostsCommand(fn, userId, params) {
 
 }
 
-// Handles the 'comments' command
-function handleComments(userId, params) {
+// Handles the 'followers' command
+function handleFollowers(userId, param, startAccount) {
+
+    if(!param) {
+        param = settings[userId].steem_account;
+        if(!param) {
+            sendDirectMessage(userId, 'Error: You have to specify a username.');
+            return;
+        }
+    }
+
+    steem.api.getFollowers(param, startAccount, 'blog', 1000, (err, res) => {
+        if(err) console.log(err);
+        else {
+            console.log(res.length);
+            if(res.length == 1000) {
+                // handleFollowers(userId, param, startAccount);
+            }
+        }
+    });
+
+}
+
+// Handles the 'mentions' command
+function handleMentions(userId, params) {
 
     params.shift();
 
-    params = setParams(params);
+    params = setParams(params, ['comments', 'coms', 'c', 'posts', 'p', 'both', 'b']);
 
     if(params[1] === '') {
         params[1] = settings[userId].steem_account;
@@ -178,28 +221,51 @@ function handleComments(userId, params) {
         }
     }
 
-    MongoClient.connect(CONNECTION_STRING, function(err, client) {
+    MongoClient.connect(CONNECTION_STRING, (err, client) => {
         if(!err) {
+
             const db = client.db('SteemData');
-            db.collection('Comments')
-                .find({author: params[1]})
-                .sort({created: -1})
-                .limit(params[0])
-                .toArray(function(err, docs) {
-                    client.close();
-                    if(!err) {
-                        if(docs.length === 0) {
-                            sendDirectMessage(userId, 'No comment. Either the specified user never commented or the user \'' + params[1] + '\' doesn\'t exist.');
+
+            // If it starts with 'c', it's 'comments', 'coms' or 'c'
+            if(params[2][0] === 'c') getDocsArray(['Comments'], 0, []);
+            // If it starts with 'p', it's 'posts' or 'p'
+            else if(params[2][0] === 'p') getDocsArray(['Posts'], 0, []);
+            // If it doesn't start with 'c' nor 'p', it's both
+            else getDocsArray(['Comments', 'Posts'], 0, []);
+
+            function getDocsArray(types, index, docs) {
+                db.collection(types[index])
+                    .find({body: new RegExp('.*@' + params[1] + '.*')})
+                    .sort({created: -1})
+                    .limit(params[0])
+                    .toArray((err, queried) => {
+                        if(err) {
+                            sendDirectMessage(userId, 'Error: There was an error querying the SteemData database.');
+                            return;
+                        } else {
+                            docs = docs.concat(queried);
+                            if(++index < types.length) getDocsArray(types, index, docs);
+                            else {
+                                client.close();
+
+                                if(docs.length == 0) {
+                                    sendDirectMessage(userId, 'No mention. Either the specified user never got mentioned or the user \'' + params[1] + '\' doesn\'t exist.');
+                                    return;
+                                } else docs = docs.sort((a, b) => b.created - a.created).slice(0, docs.length > params[0] ? params[0] : docs.length);
+
+                                let text = '';
+                                for(let i = 0; i < docs.length; i++) {
+                                    text += (i + 1) + '. @' + docs[i].author + parseTo(' mentioned this user in a ', 'bold', settings[userId].styling) + (docs[i].parent_author === '' ? parseTo('post ', 'bold', settings[userId].styling) + '(' + docs[i].title  + ')'
+                                                                                                                                           : parseTo('comment on ', 'bold', settings[userId].styling) + docs[i].root_title) + '\n';
+                                }
+                                sendDirectMessage(userId, text);
+                                users[userId] = createUserObject(docs, text, 'mentions', params);
+                            }
                         }
-                        let text = '';
-                        for(let i = 0; i < docs.length; i++) {
-                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold', settings[userId].styling) + docs[i].root_title + '\n';
-                        }
-                        sendDirectMessage(userId, text);
-                        users[userId] = createUserObject(docs, text, 'comments', params);
-                    }
-                });
-        }
+                    });
+            }
+        } else sendDirectMessage(userId, 'Error: There was an error connecting to the SteemData database.');
+
     });
 
 }
@@ -219,28 +285,14 @@ function handleReplies(userId, params) {
         }
     }
 
-    MongoClient.connect(CONNECTION_STRING, function(err, client) {
-        if(!err) {
-            const db = client.db('SteemData');
-            db.collection('Comments')
-                .find({parent_author: params[1]})
-                .sort({created: -1})
-                .limit(params[0])
-                .toArray(function(err, docs) {
-                    client.close();
-                    if(!err) {
-                        if(docs.length === 0) {
-                            sendDirectMessage(userId, 'No reply. Either the specified user never got any reply or the user \'' + params[1] + '\' doesn\'t exist.');
-                        }
-                        let text = '';
-                        for(let i = 0; i < docs.length; i++) {
-                            text += (i + 1) + '. @' + docs[i].author + parseTo(' replied to ', 'bold', settings[userId].styling) + docs[i].root_title + '\n';
-                        }
-                        sendDirectMessage(userId, text);
-                        users[userId] = createUserObject(docs, text, 'replies', params);
-                    }
-                });
-         }
+    steem.api.getRepliesByLastUpdate(params[1], '', params[0], function(err, res) {
+        if(err) console.log(err);
+        let text = '';
+        for(let i = 0; i < res.length; i++) {
+            text += (i + 1) + '. @' + res[i].author + parseTo(' replied to ', 'bold', settings[userId].styling) + res[i].root_title + '\n';
+        }
+        sendDirectMessage(userId, text);
+        users[userId] = createUserObject(res, text, 'replies', params);
     });
 
 }
@@ -321,7 +373,7 @@ function handleSet(userId, setting, value) {
 // Handles the 'next' subcommand
 function handleNext(userId) {
     if(users.hasOwnProperty(userId)) {
-        const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'replies', 'trending'];
+        const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
         if(allowedCommandNames.includes(users[userId].last_command.name)) {
             const allowedSubcommandNames = ['open'];
             if(allowedSubcommandNames.includes(users[userId].last_subcommand.name)) {
@@ -334,7 +386,7 @@ function handleNext(userId) {
 // Handles the 'previous' subcommand
 function handlePrevious(userId) {
     if(users.hasOwnProperty(userId)) {
-        const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'replies', 'trending'];
+        const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
         if(allowedCommandNames.includes(users[userId].last_command.name)) {
             const allowedSubcommandNames = ['open'];
             if(allowedSubcommandNames.includes(users[userId].last_subcommand.name)) {
@@ -349,12 +401,12 @@ function handleOpen(userId, index) {
     index = index ? index - 1 : 0;
     if(users.hasOwnProperty(userId)) {
         // Checking if the last command supports the 'open' subcommand
-        const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'replies', 'trending'];
+        const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
         if(allowedCommandNames.includes(users[userId].last_command.name)) {
             if(index >= 0 && index < users[userId].last_query_result.array.length) {
                 const post = users[userId].last_query_result.array[index];
                 let payoutline, postTitle;
-                if(['comments', 'replies'].includes(users[userId].last_command.name)) {
+                if(['mentions', 'replies'].includes(users[userId].last_command.name)) {
                     payoutLine = post.last_payout.getTime() === 0 ? 'Pending Payout: ' + post.pending_payout_value.amount + '$'
                                                                   : 'Author Payout: ' + post.total_payout_value.amount + '$';
                     postTitle = 'RE: ' + post.root_title;
@@ -385,28 +437,42 @@ function saveSubcommand(userId, name, param) {
 }
 
 // Returns a correct params array
-function setParams(params) {
-    // If no params have been specified, set those params to default
-    if(!params || params.length === 0) {
-        params = [10, ''];
-    } else {
-        // If only one param exists, check which param it is and set the other one to default
-        if(!params[1]) {
-            // If the param is the tag
-            if(isNaN(params[0])) {
-                params = [10, params[0]];
-            // Else it must be the quantity
-            } else {
-                params = [parseInt(params[0]), ''];
+function setParams(params, allowedLastParamValues) {
+
+    let number;
+
+    // Keeps only strings and parses the number
+    // If there is more than one number, the last one is kept
+    params = params.filter(param => {
+        if(isNaN(param)) return true;
+        number = parseInt(param);
+        return false;
+    });
+
+    // Add the number parsed at the start of array or add 10 if no number has been parsed
+    params.unshift(number ? number : 10);
+
+    if(allowedLastParamValues) {
+        // If there is at least one string
+        if(params.length >= 2) {
+            // If the first string is an allowed last param value
+            if(allowedLastParamValues.includes(params[1])) {
+                const tmp = params.length == 3 ? params[2] : '';
+                params[2] = params[1];
+                params[1] = tmp;
+            // Else, set the second string to default if it doesn't exist or isn't an allowed last param value
+            } else if(!params[2] || !allowedLastParamValues.includes(params[2])) {
+                params[2] = 'both';
             }
-        // If all params exist, check if they are in the right order
-        } else if(isNaN(params[0])) {
-            params = [parseInt(params[1]), params[0]];
-        // If everything is ok, parse the quantity string to an int
+        // If just the number exists, set to default
         } else {
-            params[0] = parseInt(params[0]);
+            params = params.concat('', 'both');
         }
+    // If just the number exists for a regular set of params, set to default
+    } else if(!params[1]) {
+        params[1] = ''; 
     }
+
     return params;
 
 }
