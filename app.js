@@ -5,6 +5,7 @@ const fs = require('fs');
 
 require('./utils/factory')();
 require('./utils/markdownParser')();
+const formatter = require('./utils/formatter');
 
 // Authentifying
 const twitter = new Twit({
@@ -46,6 +47,10 @@ function processDirectMessage(dm) {
     if(!settings[userId]) settings[userId] = createUserSettingsObject(false, true);
     
     switch(true) {
+        // Account
+        case commands.account.keywords.includes(cmd[0]):
+            handleAccount(userId, cmd[1])
+            break;
         // Blog
         case commands.blog.keywords.includes(cmd[0]):
             handleUserRelatedPostsCommand(steem.api.getDiscussionsByBlog, userId, cmd);
@@ -66,7 +71,7 @@ function processDirectMessage(dm) {
         case commands.feed.keywords.includes(cmd[0]):
             handleUserRelatedPostsCommand(steem.api.getDiscussionsByFeed, userId, cmd);
             break;
-        // Followers
+        // // Followers
         // case commands.followers.keywords.includes(cmd[0]):
         //     handleFollowers(userId, cmd[1]);
         //     break;
@@ -184,25 +189,85 @@ function handleUserRelatedPostsCommand(fn, userId, params) {
 }
 
 // Handles the 'followers' command
-function handleFollowers(userId, param, startAccount) {
+// function handleFollowers(userId, param, startAccount) {
+
+//     if(!param) {
+//         param = settings[userId].steem_account;
+//         if(!param) {
+//             sendDirectMessage(userId, 'Error: You have to specify a username.');
+//             return;
+//         }
+//     }
+
+//     steem.api.getFollowers(param, startAccount, 'blog', 1000, (err, res) => {
+//         if(err) console.log(err);
+//         else {
+//             console.log(res.length);
+//             if(res.length == 1000) {
+//                 // handleFollowers(userId, param, startAccount);
+//             }
+//         }
+//     });
+
+// }
+
+handleAccount(1, 'ragepeanut');
+
+// Handles the 'account' command
+function handleAccount(userId, param) {
 
     if(!param) {
-        param = settings[userId].steem_account;
-        if(!param) {
+        if(settings[userId].steem_account) param = settings[userId].steem_account;
+        else {
             sendDirectMessage(userId, 'Error: You have to specify a username.');
             return;
         }
     }
 
-    steem.api.getFollowers(param, startAccount, 'blog', 1000, (err, res) => {
+    steem.api.getAccounts([param], function(err, res) {
         if(err) console.log(err);
         else {
-            console.log(res.length);
-            if(res.length == 1000) {
-                // handleFollowers(userId, param, startAccount);
-            }
+            const account = res[0];
+            account.profile = JSON.parse(account.json_metadata).profile;
+            const canParse = true; // settings[userId].styling;
+            steem.api.getDynamicGlobalProperties(async function(error, global) {
+                if(error) console.log(error);
+                else {
+                    let text = parseTo('Account', 'bold', canParse)
+                             + '\nName: ' + account.profile.name + ' (' + param + ')'
+                             + '\nReputation: ' + formatter.reputation(account.reputation)
+                             + '\nAbout: ' + account.profile.about
+                             + '\nAge: '
+                             + '\nLocation: ' + account.profile.location
+                             + '\n\n' + parseTo('Links', 'bold', canParse)
+                             + '\nWebsite: ' + account.profile.website
+                             + (account.profile.github ? '\nGitHub: https://github.com/' + account.profile.github : '')
+                             + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + account.profile.twitter : '')
+                             + '\nSteem: ' + param
+                             + '\n\n' + parseTo('Voting', 'bold', canParse)
+                             + '\nVoting Weight: '
+                             + '\nVoting Power: ' + account.voting_power / 100  + '%'
+                             + '\nBandwith Remaining: '
+                             + '\nVote Count: '
+                             + '\nVote Count (24 hours): '
+                             + '\n\n' + parseTo('Posting', 'bold', canParse)
+                             + '\nPost Count: ' + account.post_count  + ' posts'
+                             + '\nPost Count (24 hours): '
+                             + '\n\n' + parseTo('Wallet', 'bold', canParse)
+                             + '\nAccount Value: ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(await steem.formatter.estimateAccountValue(account))
+                             + '\nBalance: ' + account.balance  + ' / ' + account.sbd_balance
+                             + '\nSteem Power: ' + steem.formatter.vestToSteem(account.vesting_shares, global.total_vesting_shares, global.total_vesting_fund_steem).toFixed(2) + ' STEEM'
+                             + '\nSavings: ' + account.savings_balance + ' / ' + account.savings_sbd_balance
+                             + '\n\n' + parseTo('Witnesses', 'bold', canParse)
+                             + '\nWitness Vote Count: ' + account.witnesses_voted_for
+                             + '\nWitness Votes: ';
+                    console.log(steem.formatter.estimateAccountValue(account));
+                    console.log(text);
+                }
+
+            })
         }
-    });
+    })
 
 }
 

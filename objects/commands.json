@@ -1,4 +1,23 @@
 {
+    "account": {
+        "desc_end": "",
+        "desc_start": "This command prints informations about an account.",
+        "keywords": [
+            "account",
+            "acc",
+            "a",
+            "details",
+            "det",
+            "d"
+        ],
+        "params": [
+            {
+                "name": "user",
+                "text": "lets you decide which user the informations should be about."
+            }
+        ],
+        "quick_desc": "prints your account's informations."
+    },
     "blog": {
         "desc_end": "\nThese parameters can be used together. No specific order is required.",
         "desc_start": "This command prints the last 10 posts you've made.",
