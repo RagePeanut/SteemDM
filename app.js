@@ -229,40 +229,48 @@ function handleAccount(userId, param) {
         else {
             const account = res[0];
             account.profile = JSON.parse(account.json_metadata).profile;
-            const canParse = true; // settings[userId].styling;
-            steem.api.getDynamicGlobalProperties(async function(error, global) {
+            const canParse = false; // settings[userId].styling;
+            steem.api.getDynamicGlobalProperties(function(error, global) {
                 if(error) console.log(error);
                 else {
-                    let text = parseTo('Account', 'bold', canParse)
-                             + '\nName: ' + account.profile.name + ' (' + param + ')'
-                             + '\nReputation: ' + formatter.reputation(account.reputation)
-                             + '\nAbout: ' + account.profile.about
-                             + '\nAge: '
-                             + '\nLocation: ' + account.profile.location
-                             + '\n\n' + parseTo('Links', 'bold', canParse)
-                             + '\nWebsite: ' + account.profile.website
-                             + (account.profile.github ? '\nGitHub: https://github.com/' + account.profile.github : '')
-                             + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + account.profile.twitter : '')
-                             + '\nSteem: ' + param
-                             + '\n\n' + parseTo('Voting', 'bold', canParse)
-                             + '\nVoting Weight: '
-                             + '\nVoting Power: ' + account.voting_power / 100  + '%'
-                             + '\nBandwith Remaining: '
-                             + '\nVote Count: '
-                             + '\nVote Count (24 hours): '
-                             + '\n\n' + parseTo('Posting', 'bold', canParse)
-                             + '\nPost Count: ' + account.post_count  + ' posts'
-                             + '\nPost Count (24 hours): '
-                             + '\n\n' + parseTo('Wallet', 'bold', canParse)
-                             + '\nAccount Value: ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(await steem.formatter.estimateAccountValue(account))
-                             + '\nBalance: ' + account.balance  + ' / ' + account.sbd_balance
-                             + '\nSteem Power: ' + steem.formatter.vestToSteem(account.vesting_shares, global.total_vesting_shares, global.total_vesting_fund_steem).toFixed(2) + ' STEEM'
-                             + '\nSavings: ' + account.savings_balance + ' / ' + account.savings_sbd_balance
-                             + '\n\n' + parseTo('Witnesses', 'bold', canParse)
-                             + '\nWitness Vote Count: ' + account.witnesses_voted_for
-                             + '\nWitness Votes: ';
-                    console.log(steem.formatter.estimateAccountValue(account));
-                    console.log(text);
+                    steem.api.getAccountVotes(param, function(votesErr, votes) {
+                        if(votesErr) votes = [];
+                        steem.api.getAccountHistory(param, -1, 300, async function(historyErr, history) {
+                            if(historyErr) history = [];
+                            let text = parseTo('Account', 'bold', canParse)
+                                     + (account.profile.name ? '\nName: ' + account.profile.name + ' (' + param + ')' : param)
+                                     + '\nReputation: ' + formatter.reputation(account.reputation)
+                                     + (account.profile.about ? '\nAbout: ' + account.profile.about : '')
+                                     + '\nAge: '
+                                     + (account.profile.location ? '\nLocation: ' + account.profile.location : '')
+                                     + (account.profile.website || account.profile.github || account.profile.twitter ? '\n\n' + parseTo('Links', 'bold', canParse) : '')
+                                     + (account.profile.website ? '\nWebsite: ' + account.profile.website : '')
+                                     + (account.profile.github ? '\nGitHub: https://github.com/' + account.profile.github : '')
+                                     + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + account.profile.twitter : '')
+                                     + '\n\n' + parseTo('Donations', 'bold', canParse)
+                                     + (account.profile.bitcoin ? '\nBitcoin: ' + account.profile.bitcoin : '')
+                                     + (account.profile.ethereum ? '\nEthereum: ' + account.profile.ethereum : '')
+                                     + '\nSteem: ' + param
+                                     + '\n\n' + parseTo('Voting', 'bold', canParse)
+                                     + '\nVoting Weight: '
+                                     + '\nVoting Power: ' + account.voting_power / 100  + '%'
+                                     + '\nBandwith Remaining: '
+                                     + '\nVote Count: ' + votes.length + ' votes'
+                                     + '\nVote Count (24 hours): ' + votes.filter(vote => Date.now() - new Date(vote.time) <= 24 * 60 * 60 * 1000).length + ' votes'
+                                     + '\n\n' + parseTo('Posting', 'bold', canParse)
+                                     + '\nPost Count: ' + account.post_count  + ' posts'
+                                     + '\nPost Count (24 hours): ' + history.filter(trx => Date.now() - new Date(trx[1].timestamp) <= 24 * 60 * 60 * 1000 && trx[1].op[0] === 'comment' && trx[1].op[1].author === param && !/@@ -\d+,?\d+ \+\d+,?\d+ @@/.test(trx[1].op[1].body)).length + ' posts'
+                                     + '\n\n' + parseTo('Wallet', 'bold', canParse)
+                                     + '\nAccount Value: ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(await steem.formatter.estimateAccountValue(account))
+                                     + '\nBalance: ' + account.balance  + ' / ' + account.sbd_balance
+                                     + '\nSteem Power: ' + steem.formatter.vestToSteem(account.vesting_shares, global.total_vesting_shares, global.total_vesting_fund_steem).toFixed(2) + ' STEEM'
+                                     + '\nSavings: ' + account.savings_balance + ' / ' + account.savings_sbd_balance
+                                     + '\n\n' + parseTo('Witnesses', 'bold', canParse)
+                                     + '\nWitness Vote Count: ' + account.witnesses_voted_for
+                                     + '\nWitness Votes: ' + account.witness_votes.join(', ');       
+                            console.log(text);
+                        });
+                    }); 
                 }
 
             })
