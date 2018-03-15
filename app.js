@@ -237,6 +237,22 @@ function handleAccount(userId, param) {
                         if(votesErr) votes = [];
                         steem.api.getAccountHistory(param, -1, 300, async function(historyErr, history) {
                             if(historyErr) history = [];
+                            // Calculating the bandwidth
+                            const week = 60 * 60 * 24 * 7;
+                            let vests = parseFloat(account.vesting_shares);
+                            let receivedVests = parseFloat(account.received_vesting_shares);
+                            let totalVests = parseFloat(global.total_vesting_shares);
+                            let maxVirtualBandwidth = parseInt(global.max_virtual_bandwidth);
+                            let averageBandwidth = parseInt(account.average_bandwidth);
+                            // Delay between now and the last bandwidth update (in seconds)
+                            let delay = (Date.now() - new Date(account.last_bandwidth_update)) / 1000;
+                            // Calculating the bandwidth allocated to the account
+                            let bandwidthAllocated = Math.round(maxVirtualBandwidth * (vests + receivedVests) / totalVests / 1000000)
+                            // Updating the bandwidth based on delay
+                            let newBandwidth = 0;
+                            if(delay < week) {
+                                newBandwidth = Math.round((week - delay) * averageBandwidth / week / 1000000);
+                            }
                             let text = parseTo('Account', 'bold', canParse)
                                      + (account.profile.name ? '\nName: ' + account.profile.name + ' (' + param + ')' : param)
                                      + '\nReputation: ' + formatter.reputation(account.reputation)
@@ -254,7 +270,7 @@ function handleAccount(userId, param) {
                                      + '\n\n' + parseTo('Voting', 'bold', canParse)
                                      + '\nVoting Weight: '
                                      + '\nVoting Power: ' + account.voting_power / 100  + '%'
-                                     + '\nBandwith Remaining: '
+                                     + '\nBandwith Remaining: ' + (100 - (100 * newBandwidth / bandwidthAllocated)).toFixed(2) + '% (used ' + parseInt(newBandwidth / 1024) + 'kb of ' + parseInt(bandwidthAllocated / 1024) + 'kb)' 
                                      + '\nVote Count: ' + votes.length + ' votes'
                                      + '\nVote Count (24 hours): ' + votes.filter(vote => Date.now() - new Date(vote.time) <= 24 * 60 * 60 * 1000).length + ' votes'
                                      + '\n\n' + parseTo('Posting', 'bold', canParse)
