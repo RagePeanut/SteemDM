@@ -211,8 +211,6 @@ function handleUserRelatedPostsCommand(fn, userId, params) {
 
 // }
 
-handleAccount(1, 'ragepeanut');
-
 // Handles the 'account' command
 function handleAccount(userId, param) {
 
@@ -229,62 +227,54 @@ function handleAccount(userId, param) {
         else {
             const account = res[0];
             account.profile = JSON.parse(account.json_metadata).profile;
-            const canParse = false; // settings[userId].styling;
+            const canParse = settings[userId].styling;
             steem.api.getDynamicGlobalProperties(function(error, global) {
                 if(error) console.log(error);
                 else {
                     steem.api.getAccountVotes(param, function(votesErr, votes) {
                         if(votesErr) votes = [];
-                        steem.api.getAccountHistory(param, -1, 300, async function(historyErr, history) {
+                        steem.api.getAccountHistory(param, -1, 300, function(historyErr, history) {
                             if(historyErr) history = [];
-                            // Calculating the bandwidth
-                            const week = 60 * 60 * 24 * 7;
-                            let vests = parseFloat(account.vesting_shares);
-                            let receivedVests = parseFloat(account.received_vesting_shares);
-                            let totalVests = parseFloat(global.total_vesting_shares);
-                            let maxVirtualBandwidth = parseInt(global.max_virtual_bandwidth);
-                            let averageBandwidth = parseInt(account.average_bandwidth);
-                            // Delay between now and the last bandwidth update (in seconds)
-                            let delay = (Date.now() - new Date(account.last_bandwidth_update)) / 1000;
-                            // Calculating the bandwidth allocated to the account
-                            let bandwidthAllocated = Math.round(maxVirtualBandwidth * (vests + receivedVests) / totalVests / 1000000)
-                            // Updating the bandwidth based on delay
-                            let newBandwidth = 0;
-                            if(delay < week) {
-                                newBandwidth = Math.round((week - delay) * averageBandwidth / week / 1000000);
-                            }
-                            let text = parseTo('Account', 'bold', canParse)
-                                     + (account.profile.name ? '\nName: ' + account.profile.name + ' (' + param + ')' : param)
-                                     + '\nReputation: ' + formatter.reputation(account.reputation)
-                                     + (account.profile.about ? '\nAbout: ' + account.profile.about : '')
-                                     + '\nAge: '
-                                     + (account.profile.location ? '\nLocation: ' + account.profile.location : '')
-                                     + (account.profile.website || account.profile.github || account.profile.twitter ? '\n\n' + parseTo('Links', 'bold', canParse) : '')
-                                     + (account.profile.website ? '\nWebsite: ' + account.profile.website : '')
-                                     + (account.profile.github ? '\nGitHub: https://github.com/' + account.profile.github : '')
-                                     + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + account.profile.twitter : '')
-                                     + '\n\n' + parseTo('Donations', 'bold', canParse)
-                                     + (account.profile.bitcoin ? '\nBitcoin: ' + account.profile.bitcoin : '')
-                                     + (account.profile.ethereum ? '\nEthereum: ' + account.profile.ethereum : '')
-                                     + '\nSteem: ' + param
-                                     + '\n\n' + parseTo('Voting', 'bold', canParse)
-                                     + '\nVoting Weight: '
-                                     + '\nVoting Power: ' + account.voting_power / 100  + '%'
-                                     + '\nBandwith Remaining: ' + (100 - (100 * newBandwidth / bandwidthAllocated)).toFixed(2) + '% (used ' + parseInt(newBandwidth / 1024) + 'kb of ' + parseInt(bandwidthAllocated / 1024) + 'kb)' 
-                                     + '\nVote Count: ' + votes.length + ' votes'
-                                     + '\nVote Count (24 hours): ' + votes.filter(vote => Date.now() - new Date(vote.time) <= 24 * 60 * 60 * 1000).length + ' votes'
-                                     + '\n\n' + parseTo('Posting', 'bold', canParse)
-                                     + '\nPost Count: ' + account.post_count  + ' posts'
-                                     + '\nPost Count (24 hours): ' + history.filter(trx => Date.now() - new Date(trx[1].timestamp) <= 24 * 60 * 60 * 1000 && trx[1].op[0] === 'comment' && trx[1].op[1].author === param && !/@@ -\d+,?\d+ \+\d+,?\d+ @@/.test(trx[1].op[1].body)).length + ' posts'
-                                     + '\n\n' + parseTo('Wallet', 'bold', canParse)
-                                     + '\nAccount Value: ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(await steem.formatter.estimateAccountValue(account))
-                                     + '\nBalance: ' + account.balance  + ' / ' + account.sbd_balance
-                                     + '\nSteem Power: ' + steem.formatter.vestToSteem(account.vesting_shares, global.total_vesting_shares, global.total_vesting_fund_steem).toFixed(2) + ' STEEM'
-                                     + '\nSavings: ' + account.savings_balance + ' / ' + account.savings_sbd_balance
-                                     + '\n\n' + parseTo('Witnesses', 'bold', canParse)
-                                     + '\nWitness Vote Count: ' + account.witnesses_voted_for
-                                     + '\nWitness Votes: ' + account.witness_votes.join(', ');       
-                            console.log(text);
+                            const bandwidth = formatter.currentBandwidth(account, global);
+                            const steemPower = formatter.currentSteemPower(account, global);
+                            steem.api.getRewardFund('post', function(rewardErr, rewardFund) {
+                                if(rewardErr) rewardFund = {recent_claims: '0', reward_balance: '0.000 STEEM'};
+                                steem.api.getCurrentMedianHistoryPrice(async function(feedErr, feedPrice) {
+                                    if(feedErr) feedPrice = {base: '0.000 SBD', quote: '1.000 STEEM'};
+                                    let text = parseTo('Account', 'bold', canParse)
+                                             + '\nName: ' + (account.profile.name ? account.profile.name + ' (' + param + ')' : param)
+                                             + '\nReputation: ' + formatter.reputation(account.reputation)
+                                             + (account.profile.about ? '\nAbout: ' + account.profile.about : '')
+                                             + '\nAge: ' + formatter.age(account.created + 'Z', true, false, 'days')
+                                             + (account.profile.location ? '\nLocation: ' + account.profile.location : '')
+                                             + (account.profile.website || account.profile.github || account.profile.twitter ? '\n\n' + parseTo('Links', 'bold', canParse) : '')
+                                             + (account.profile.website ? '\nWebsite: ' + account.profile.website : '')
+                                             + (account.profile.github ? '\nGitHub: https://github.com/' + account.profile.github : '')
+                                             + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + account.profile.twitter : '')
+                                             + '\n\n' + parseTo('Donations', 'bold', canParse)
+                                             + (account.profile.bitcoin ? '\nBitcoin: ' + account.profile.bitcoin : '')
+                                             + (account.profile.ethereum ? '\nEthereum: ' + account.profile.ethereum : '')
+                                             + '\nSteem: ' + param
+                                             + '\n\n' + parseTo('Voting', 'bold', canParse)
+                                             + '\nVoting Weight: ' + formatter.number(steemPower.owned - steemPower.delegated + steemPower.received, 3, 'en-US') + ' SP (' + formatter.currency(formatter.estimateVoteValue(account, rewardFund, feedPrice), 2, 'en-US', 'USD') +  ')'
+                                             + '\nVoting Power: ' + formatter.currentVotingPower(account, true)  + '%'
+                                             + '\nBandwith Remaining: ' + Math.floor((100 - (100 * bandwidth.used / bandwidth.allocated)) * 100) / 100 + '% (used ' + formatter.bytes(bandwidth.used) + ' of ' + formatter.bytes(bandwidth.allocated) + ')' 
+                                             + '\nVote Count: ' + formatter.number(votes.length, 0, 'en-US') + ' votes'
+                                             + '\nVote Count (24 hours): ' + formatter.number(votes.filter(vote => Date.now() - new Date(vote.time) <= 24 * 60 * 60 * 1000).length, 0, 'en-US') + ' votes'
+                                             + '\n\n' + parseTo('Posting', 'bold', canParse)
+                                             + '\nPost Count: ' + formatter.number(account.post_count, 0, 'en-US')  + ' posts'
+                                             + '\nPost Count (24 hours): ' + history.filter(trx => Date.now() - new Date(trx[1].timestamp) <= 24 * 60 * 60 * 1000 && trx[1].op[0] === 'comment' && trx[1].op[1].author === param && !/@@ -\d+,?\d+ \+\d+,?\d+ @@/.test(trx[1].op[1].body)).length + ' posts'
+                                             + '\n\n' + parseTo('Wallet', 'bold', canParse)
+                                             + '\nAccount Value: ' + formatter.currency(await steem.formatter.estimateAccountValue(account), 2, 'en-US', 'USD')
+                                             + '\nSteem Power: ' + formatter.number(steemPower.owned, 3, 'en-US') + ' STEEM (' + (steemPower.delegated < steemPower.received ? '+' : '') + formatter.number(-steemPower.delegated + steemPower.received, 3, 'en-US') + ' STEEM)'
+                                             + '\nBalance: ' + account.balance  + ' / ' + account.sbd_balance
+                                             + '\nSavings: ' + account.savings_balance + ' / ' + account.savings_sbd_balance
+                                             + '\n\n' + parseTo('Witnesses', 'bold', canParse)
+                                             + '\nWitness Vote Count: ' + account.witnesses_voted_for
+                                             + (account.witnesses_voted_for > 0 ? '\nWitness Votes: ' + account.witness_votes.join(', ') : '');       
+                                    sendDirectMessage(userId, text);
+                                });
+                            });
                         });
                     }); 
                 }
