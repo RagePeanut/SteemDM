@@ -50,7 +50,7 @@ module.exports = {
         while(number >= 1024 && ++conversions) {
             number = number/1024;
         }
-        return number.toFixed(number >= 10 || conversions < 1 ? 0 : (decimals ? parseInt(decimals) : 1)) + ' ' + units[conversions];
+        return number.toFixed(conversions < 2 ? 0 : (decimals ? parseInt(decimals) : 2)) + ' ' + units[conversions];
     },
 
     currency: function(number, decimals, locales, currency) {
@@ -65,13 +65,14 @@ module.exports = {
         const week = 60 * 60 * 24 * 7;
         const vests = parseFloat(account.vesting_shares);
         const receivedVests = parseFloat(account.received_vesting_shares);
+        const delegatedVests = parseFloat(account.delegated_vesting_shares);
         const totalVests = parseFloat(dynamicGlobalProperties.total_vesting_shares);
         const maxVirtualBandwidth = parseInt(dynamicGlobalProperties.max_virtual_bandwidth);
         const averageBandwidth = parseInt(account.average_bandwidth);
         // Delay between now and the last bandwidth update (in seconds)
         const bandwidthDelay = (new Date() - new Date(account.last_bandwidth_update + 'Z')) / 1000;
         // Calculating the bandwidth allocated to the account
-        const bandwidthAllocated = Math.round((maxVirtualBandwidth * (vests + receivedVests)) / (totalVests * 1000000));
+        const bandwidthAllocated = Math.round((maxVirtualBandwidth * (vests + receivedVests - delegatedVests)) / (totalVests * 1000000));
         // Updating the bandwidth used based on delay
         const bandwidthUsed = bandwidthDelay < week ? Math.round((((week - bandwidthDelay) * averageBandwidth) / week) / 1000000) : 0;
         return {allocated: bandwidthAllocated, used: bandwidthUsed};
