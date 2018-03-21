@@ -5,9 +5,10 @@ const fs = require('fs');
 
 require('./utils/factory')();
 require('./utils/markdownParser')();
+require('./bots/telegram')();
 const formatter = require('./utils/formatter');
 
-// Authentifying
+// Twitter
 const twitter = new Twit({
     consumer_key: process.env.CONSUMER_KEY,
     consumer_secret: process.env.CONSUMER_SECRET,

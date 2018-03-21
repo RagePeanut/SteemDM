@@ -23,6 +23,7 @@
   "dependencies": {
     "mongodb": "^3.0.3",
     "steem": "^0.7.1",
+    "telegraf": "^3.19.0",
     "twit": "^2.2.9"
   },
   "engines": {
