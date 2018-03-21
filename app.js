@@ -330,7 +330,7 @@ function handleMentions(userId, params) {
                                 if(docs.length == 0) {
                                     sendDirectMessage(userId, 'No mention. Either the specified user never got mentioned or the user \'' + params[1] + '\' doesn\'t exist.');
                                     return;
-                                } else docs = docs.sort((a, b) => b.created - a.created).slice(0, docs.length > params[0] ? params[0] : docs.length);
+                                } else if(types.length > 1) docs = docs.sort((a, b) => b.created - a.created).slice(0, docs.length > params[0] ? params[0] : docs.length);
 
                                 let text = '';
                                 for(let i = 0; i < docs.length; i++) {
