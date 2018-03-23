@@ -1,7 +1,7 @@
-module.exports = function() {
+module.exports =  {
 
     // Creates a Direct Message Object
-    this.createDirectMessageObject = (userId, text) => {
+    createDirectMessageObject: (userId, text) => {
         return {
             event: {
                 type: 'message_create',
@@ -15,15 +15,12 @@ module.exports = function() {
                 }
             }
         }
-    }
+    },
 
     // Creates an User Object
-    this.createUserObject = (resultArray, resultText, cmdName, cmdParams) => {
+    createUserObject: (result, cmdName, cmdParams) => {
         return {
-            last_query_result: {
-                array: resultArray,
-                text: resultText
-            },
+            last_query_result: result,
             last_command: {
                 name: cmdName,
                 params: cmdParams
@@ -33,10 +30,10 @@ module.exports = function() {
                 param: ''
             }
         }
-    }
+    },
 
     // Creates an User Settings Object
-    this.createUserSettingsObject = (steemAccount, stylingAllowed) => {
+    createUserSettingsObject: (steemAccount, stylingAllowed) => {
         return {
             steem_account: steemAccount,
             styling: stylingAllowed

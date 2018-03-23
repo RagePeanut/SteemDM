@@ -53,6 +53,10 @@ module.exports = {
         return number.toFixed(conversions < 2 ? 0 : (decimals ? parseInt(decimals) : 2)) + ' ' + units[conversions];
     },
 
+    capitalize: function(string) {
+        return string[0].toUpperCase() + string.slice(1);
+    },
+
     currency: function(number, decimals, locales, currency) {
         if(!locales || typeof locales !== 'string') {
             locales = 'en-US';
@@ -106,6 +110,46 @@ module.exports = {
         return new Intl.NumberFormat(locales, { style: 'decimal', maximumFractionDigits: parseInt(decimals), minimumFractionDigits: parseInt(decimals) }).format(number);
     },
 
+    params: function(params, allowedLastParamValues) {
+
+        let number;
+    
+        // Keeps only strings and parses the number
+        // If there is more than one number, the last one is kept
+        params = params.filter(param => {
+            if(isNaN(param)) return true;
+            number = parseInt(param);
+            return false;
+        });
+    
+        // Add the number parsed at the start of array or add 10 if no number has been parsed
+        params.unshift(number ? number : 10);
+    
+        if(allowedLastParamValues) {
+            // If there is at least one string
+            if(params.length >= 2) {
+                // If the first string is an allowed last param value
+                if(allowedLastParamValues.includes(params[1])) {
+                    const tmp = params.length == 3 ? params[2] : '';
+                    params[2] = params[1];
+                    params[1] = tmp;
+                // Else, set the second string to default if it doesn't exist or isn't an allowed last param value
+                } else if(!params[2] || !allowedLastParamValues.includes(params[2])) {
+                    params[2] = 'both';
+                }
+            // If just the number exists, set to default
+            } else {
+                params = params.concat('', 'both');
+            }
+        // If just the number exists for a regular set of params, set to default
+        } else if(!params[1]) {
+            params[1] = ''; 
+        }
+    
+        return params;
+    
+    },
+
     reputation: function(reputation) {
         if(reputation == null) return 25;
         reputation = parseInt(reputation);
@@ -120,6 +164,10 @@ module.exports = {
         if(isNaN(out)) out = 0;
         out = Math.max(out - 9, 0) * (neg ? -1 : 1);
         return (out * 9 + 25).toFixed(2);
+    },
+
+    split: function(string, limit) {
+        return string.match(new RegExp('[\\s\\S]{1,' + limit + '}', 'g')) || [];
     }
 
 }
