@@ -108,6 +108,7 @@ module.exports = {
     help: function(command, userId) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         const lineBreak = '\n--------------------';
+        const canParse = settings[userId].styling;
         return new Promise(function(resolve, reject) {
             if(command){
                 if(!commands[command]) {
@@ -115,22 +116,24 @@ module.exports = {
                 }
                 let response = commands[command].desc_start + lineBreak + '\nUse this command through one of these keywords:\n' + commands[command].keywords.join(', ') + lineBreak;
                 if(commands[command].params.length > 0) {
-                    response += '\nParameters:';
+                    response += '\n' + (canParse ? markdown.parser.bold('**Parameters:**') : 'Parameters:');
                     commands[command].params.forEach(param => {
-                        response += '\n- ' + param.name + ' : ' + param.text;
+                        response += '\n- ' + (canParse ? markdown.parser.bold('**' + param.name + '**') : param.name) + ' : ' + param.text;
                     });
                 } else response = response.concat('\nThere is no parameters available.');
                 if(commands[command].desc_end !== '') response += lineBreak + commands[command].desc_end;
                 resolve(response);
             } else {
-                let text = 'Here is a list of existing commands:\n';
+                let text = 'If you can\'t see the commands names, type \'set styling false\'.'
+                           + lineBreak
+                           +'\nHere is a list of existing commands:\n';
                 const keys = Object.keys(commands);
                 const arr = [];
                 for(let i = 0; i < keys.length; i++) {
-                    arr.push('- ' + keys[i] + ' : ' + commands[keys[i]].quick_desc);
-                    if(commands[keys[i]].important_param) arr.push('- ' + keys[i] + ' ' + commands[keys[i]].important_param.name + ' : ' + commands[keys[i]].important_param.text);
+                    arr.push(markdown.parser.bold('- **' + keys[i] + '** : ') + commands[keys[i]].quick_desc);
+                    if(commands[keys[i]].important_param) arr.push('- ' + (canParse ? markdown.parser.italic(markdown.parser.bold('**' + keys[i] + ' _' + commands[keys[i]].important_param.name + '_**')) : '- ' + keys[i] + ' ' + commands[keys[i]].important_param.name) + ' : ' + commands[keys[i]].important_param.text);
                 }
-                text += arr.join('\n') + lineBreak + '\nIf you can\'t see the commands names, type \'set styling false\'.';
+                text += arr.join('\n');
                 const data = {array: arr, raw: commands, text: text};
                 history[userId] = factory.createUserObject(data, 'help', []);
                 resolve(data);
@@ -180,10 +183,11 @@ module.exports = {
     
                                         if(docs.length == 0) reject(new Error('No mention. Either the specified user never got mentioned or the user \'' + params[1] + '\' doesn\'t exist.'));
                                         else if(types.length > 1) docs = docs.sort((a, b) => b.created - a.created).slice(0, docs.length > params[0] ? params[0] : docs.length);
-    
+                                        
+                                        const canParse = settings[userId].styling;
                                         const arr = [];
                                         for(let i = 0; i < docs.length; i++) {
-                                            arr.push((i + 1) + '. @' + docs[i].author + ' mentioned this user in ' + (docs[i].parent_author === '' ? docs[i].title : 'a comment on ' + docs[i].root_title));
+                                            arr.push((i + 1) + '. @' + docs[i].author + (canParse ? markdown.parser.bold(' **mentioned this user in** ') : ' mentioned this user in') + (docs[i].parent_author === '' ? docs[i].title : (canParse ? markdown.parser.bold('**a comment on** ') : 'a comment on ') + docs[i].root_title));
                                         }
                                         const text = arr.join('\n');
                                         const data = {array: arr, raw: docs, text: text};
@@ -208,14 +212,15 @@ module.exports = {
             if(allowedCommandNames.includes(history[userId].last_command.name)) {
                 const allowedSubcommandNames = ['open'];
                 if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
-                    return this.open(++history[userId].last_subcommand.param, userId);
+                    history[userId].last_subcommand.param = ++history[userId].last_subcommand.name % history[userId].last_query_result.array.length;
+                    return this.open(history[userId].last_subcommand.param, userId);
                 }
             }
         }
     },
 
     // Handles the 'open' subcommand
-    open: function(index, userId) {
+    open: function(index, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         index = index ? index - 1 : 0;
         return new Promise(function(resolve, reject) {
@@ -235,7 +240,7 @@ module.exports = {
                         }
                         let text = (post.parent_author === '' ? '' : 'RE: ') + (post.root_title || post.title)
                                  + '\n--------------------'
-                                 + '\n' + markdown.parse(post.body, settings[userId].styling)
+                                 + '\n' + markdown.parse(post.body, settings[userId].styling, website)
                                  + '\n--------------------'
                                  + '\n' + payoutLine
                                  + '\n' + post.net_votes + ' upvote' + (post.net_votes !== 1 ? 's' : '') + ', ' + post.children + ' comment' + (post.children !== 1 ? 's' : '');
@@ -286,7 +291,9 @@ module.exports = {
             if(allowedCommandNames.includes(history[userId].last_command.name)) {
                 const allowedSubcommandNames = ['open'];
                 if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
-                    return this.open(--history[userId].last_subcommand.param, userId);
+                    history[userId].last_subcommand.param = history[userId].last_subcommand.param === 0 ? history[userId].last_query_result.array.length
+                                                                                                        : --history[userId].last_subcommand.param % history[userId].last_query_result.array.length;
+                    return this.open(history[userId].last_subcommand.param, userId);
                 }
             }
         }

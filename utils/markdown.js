@@ -282,15 +282,37 @@ const mathRefs = {
     '\u{1D606}': '\u{1D66E}',
     '\u{1D607}': '\u{1D66F}'
 }
-
+const flavors = {
+    telegram: {
+        html: {
+            hr: '\n* * *',
+            junk: /<\/?(?:p|center|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>/g,
+            strikethrough: {
+                regex: /<(\/?)(?:del|s(?:trike)?)>/g,
+                replacement: '<$1s>'
+            }
+        }
+    },
+    twitter: {
+        html: {
+            hr: '\n----------',
+            junk: /<\/?(?:p|center|table|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>|<tr>\s*<\/tr>/g,
+            strikethrough: {
+                regex: /<\/?(?:del|s(?:trike)?)>/g,
+                replacement: '~~'
+            }
+        }
+    }
+}
 module.exports = {
 
-    convertHTML: function(text) {
+    convertHTML: function(text, flavor) {
+        const html = flavors[flavor].html;
         return text
             // center, div, table, ul, ol, p, sup, sub, and '<tr></tr>'
-            .replace(/<\/?(?:p|center|table|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>|<tr>\s*<\/tr>/g, '')
+            .replace(html.junk, '')
             // hr
-            .replace(/<hr *\/?>/g, '\n----------\n')
+            .replace(/\n*<hr *\/?>/g, html.hr)
             // br
             .replace(/<br *\/?>/g, '\n')
             // strong, b
@@ -298,7 +320,7 @@ module.exports = {
             // em, i
             .replace(/<\/?(i|em)>/g, '*')
             // del, s, strike
-            .replace(/<\/?(del|s(trike)?)>/g, '~~')
+            .replace(html.strikethrough.regex, html.strikethrough.replacement)
             // li
             .replace(/\s?<li> *((?:(?!<li>).)*)<\/li>/g, '\n* $1')
             // h1 --> h6
@@ -318,21 +340,23 @@ module.exports = {
             .replace(/<a +[^<>]*href="([^"]+)"[^<>]*>([^<>]+)<\/a>/g, '$2 ($1)');
     },
 
-    parse: function(text, canParse) {
-        text = this.convertHTML(text);
-        text = this.parser.horizontalRule(text);
-        let tmp = this.parser.image(text);
+    parse: function(text, canParse, flavor) {
+        text = this.convertHTML(text, flavor);
+        text = this.parser.horizontalRule(text, flavor);
+        let tmp = this.parser.image(text, flavor);
         const images = tmp.images;
-        tmp = this.parser.link(tmp.text);
+        tmp = this.parser.link(tmp.text, flavor);
         const links = tmp.links;
+        text = tmp.text;
         if(canParse) {
-            text = this.parser.bold(text);
-            text = this.parser.italic(text);
+            text = this.parser.bold(text, flavor);
+            text = this.parser.italic(text, flavor);
         }
-        text = this.parser.strikethrough(text);
-        text = this.parser.list(text);
-        text = this.replacer.link(text, links);
-        return this.replacer.image(text, images);
+        text = this.parser.strikethrough(text, flavor);
+        text = this.parser.list(text, flavor);
+        text = this.replacer.link(text, links, flavor);
+        text = this.replacer.image(text, images, flavor);
+        return text;
     },
 
     parser: {

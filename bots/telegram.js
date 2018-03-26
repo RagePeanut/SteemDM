@@ -14,7 +14,7 @@ module.exports = function() {
 
     bot.action(/[0-9]+/, ctx => {
         const index = parseInt(ctx.match.input);
-        handler.open(index, ctx.from.id)
+        handler.open(index, ctx.from.id, 'telegram')
                .then(post => {
                    const parts = formatter.split(post, MAX_LENGTH);
 
@@ -28,10 +28,14 @@ module.exports = function() {
                        Markup.callbackButton('Next', index + 1)
                    ]).extra();
                    
-                   ctx.reply(parts[parts.length - 1], keyboard)
+                   ctx.replyWithMarkdown(parts[parts.length - 1], keyboard)
                       .catch(err => ctx.reply(err.message));
                })
                .catch(err => ctx.reply(err.message));
+    });
+
+    bot.command('mentions', ctx => {
+        ctx.replyWithMarkdown('*fdfd* _dsfsfs_')
     });
 
     bot.command(['created', 'hot', 'trending'], ctx => {
