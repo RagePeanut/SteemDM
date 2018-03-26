@@ -3,6 +3,7 @@ const MongoClient = require('mongodb').MongoClient;
 
 const formatter = require('./formatter');
 const factory = require('./factory');
+const markdown = require('./markdown');
 
 const commands = require('../objects/commands.json');
 const history = {};
@@ -13,11 +14,11 @@ const CONNECTION_STRING = 'mongodb://steemit:steemit@mongo1.steemdata.com:27017/
 
 module.exports = {
     // Handles the 'account' command
-    account: function(param, website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    account: function(param, userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         return new Promise(function(resolve, reject) {
             if(!param) {
-                if(settings[website + '/' + userId].steem_account) param = settings[website + '/' + userId].steem_account;
+                if(settings[userId].steem_account) param = settings[userId].steem_account;
                 else {
                     return reject(new Error('You have to specify a username.'));
                 }
@@ -28,7 +29,7 @@ module.exports = {
                 else {
                     const account = res[0];
                     account.profile = JSON.parse(account.json_metadata).profile;
-                    const canParse = settings[website + '/' + userId].styling;
+                    const canParse = settings[userId].styling;
                     steem.api.getDynamicGlobalProperties(function(error, global) {
                         if(error) reject(error);
                         else {
@@ -42,7 +43,7 @@ module.exports = {
                                         if(rewardErr) rewardFund = {recent_claims: '0', reward_balance: '0.000 STEEM'};
                                         steem.api.getCurrentMedianHistoryPrice(async function(feedErr, feedPrice) {
                                             if(feedErr) feedPrice = {base: '0.000 SBD', quote: '1.000 STEEM'};
-                                            let text = 'Account'
+                                            let text = (canParse ? markdown.parser.bold('**Account**') : 'Account')
                                                      + '\nName: ' + (account.profile.name ? account.profile.name + ' (' + param + ')' : param)
                                                      + '\nReputation: ' + formatter.reputation(account.reputation)
                                                      + (account.profile.about ? '\nAbout: ' + account.profile.about : '')
@@ -52,27 +53,27 @@ module.exports = {
                                                      + (account.profile.website ? '\nWebsite: ' + account.profile.website : '')
                                                      + (account.profile.github ? '\nGitHub: https://github.com/' + account.profile.github : '')
                                                      + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + account.profile.twitter : '')
-                                                     + '\n\nDonations'
+                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Donations**') : 'Donations')
                                                      + (account.profile.bitcoin ? '\nBitcoin: ' + account.profile.bitcoin : '')
                                                      + (account.profile.ethereum ? '\nEthereum: ' + account.profile.ethereum : '')
                                                      + '\nSteem: ' + param
-                                                     + '\n\nVoting'
+                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Voting**') : 'Voting')
                                                      + '\nVoting Weight: ' + formatter.number(steemPower.owned - steemPower.delegated + steemPower.received, 3, 'en-US') + ' SP (' + formatter.currency(formatter.estimateVoteValue(account, rewardFund, feedPrice), 2, 'en-US', 'USD') +  ')'
                                                      + '\nVoting Power: ' + formatter.currentVotingPower(account, true)  + '%'
                                                      + '\nBandwith Remaining: ' + Math.floor((100 - (100 * bandwidth.used / bandwidth.allocated)) * 100) / 100 + '% (used ' + formatter.bytes(bandwidth.used) + ' of ' + formatter.bytes(bandwidth.allocated) + ')' 
                                                      + '\nVote Count: ' + formatter.number(votes.length, 0, 'en-US') + ' votes'
                                                      + '\nVote Count (24 hours): ' + formatter.number(votes.filter(vote => Date.now() - new Date(vote.time) <= 24 * 60 * 60 * 1000).length, 0, 'en-US') + ' votes'
-                                                     + '\n\nPosting'
+                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Posts**') : 'Posts')
                                                      + '\nPost Count: ' + formatter.number(account.post_count, 0, 'en-US')  + ' posts'
                                                      + '\nPost Count (24 hours): ' + history.filter(trx => Date.now() - new Date(trx[1].timestamp) <= 24 * 60 * 60 * 1000 && trx[1].op[0] === 'comment' && trx[1].op[1].author === param && !/@@ -\d+,?\d+ \+\d+,?\d+ @@/.test(trx[1].op[1].body)).length + ' posts'
-                                                     + '\n\nWallet'
+                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Wallet**') : 'Wallet')
                                                      + '\nAccount Value: ' + formatter.currency(await steem.formatter.estimateAccountValue(account), 2, 'en-US', 'USD')
                                                      + '\nSteem Power: ' + formatter.number(steemPower.owned, 3, 'en-US') + ' STEEM (' + (steemPower.delegated < steemPower.received ? '+' : '') + formatter.number(-steemPower.delegated + steemPower.received, 3, 'en-US') + ' STEEM)'
                                                      + '\nBalance: ' + account.balance  + ' / ' + account.sbd_balance
                                                      + '\nSavings: ' + account.savings_balance + ' / ' + account.savings_sbd_balance
-                                                     + '\n\nWitnesses'
+                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Witnesses**') : 'Witnesses')
                                                      + '\nWitness Vote Count: ' + account.witnesses_voted_for
-                                                     + (account.witnesses_voted_for > 0 ? '\nWitness Votes: ' + account.witness_votes.join(', ') : '');       
+                                                     + (account.witnesses_voted_for > 0 ? '\nWitness Votes: ' + account.witness_votes.join(', ') : '');
                                             resolve(text);
                                         });
                                     });
@@ -86,16 +87,16 @@ module.exports = {
     },
 
     // Handles the 'close' subcommand
-    close: function(website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    close: function(userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         return new Promise(function(resolve, reject) {
-            if(history.hasOwnProperty(website + '/' + userId)) {
-                const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'replies', 'trending'];
-                if(allowedCommandNames.includes(history[website + '/' + userId].last_command.name)) {
+            if(history.hasOwnProperty(userId)) {
+                const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
+                if(allowedCommandNames.includes(history[userId].last_command.name)) {
                     const allowedSubcommandNames = ['open'];
-                    if(allowedSubcommandNames.includes(history[website + '/' + userId].last_subcommand.name)) {
-                        history[website + '/' + userId].last_subcommand = {name: '', param: ''};
-                        return resolve(history[website + '/' + userId].last_query_result.text);
+                    if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
+                        history[userId].last_subcommand = {name: '', param: ''};
+                        return resolve(history[userId].last_query_result.text);
                     }
                 }
             }
@@ -104,8 +105,8 @@ module.exports = {
     },
 
     // Handles the 'help' command
-    help: function(command, website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    help: function(command, userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         const lineBreak = '\n--------------------';
         return new Promise(function(resolve, reject) {
             if(command){
@@ -131,22 +132,22 @@ module.exports = {
                 }
                 text += arr.join('\n') + lineBreak + '\nIf you can\'t see the commands names, type \'set styling false\'.';
                 const data = {array: arr, raw: commands, text: text};
-                history[website + '/' + userId] = factory.createUserObject(data, 'help', []);
+                history[userId] = factory.createUserObject(data, 'help', []);
                 resolve(data);
             }
         });
     },
 
     // Handles the 'mentions' command
-    mentions: function(params, website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    mentions: function(params, userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         
         params.shift();
 
         params = formatter.params(params, ['comments', 'coms', 'c', 'posts', 'p', 'both', 'b']);
         return new Promise(function(resolve, reject) {
             if(params[1] === '') {
-                params[1] = settings[website + '/' + userId].steem_account;
+                params[1] = settings[userId].steem_account;
                 if(!params[1]) {
                     return reject(new Error('You have to specify a username.'));
                 }
@@ -182,11 +183,11 @@ module.exports = {
     
                                         const arr = [];
                                         for(let i = 0; i < docs.length; i++) {
-                                            arr.push((i + 1) + '. @' + docs[i].author + ' mentioned this user in' + (docs[i].parent_author === '' ? ' (' + docs[i].title + ')' : 'a comment on ' + docs[i].root_title));
+                                            arr.push((i + 1) + '. @' + docs[i].author + ' mentioned this user in ' + (docs[i].parent_author === '' ? docs[i].title : 'a comment on ' + docs[i].root_title));
                                         }
                                         const text = arr.join('\n');
                                         const data = {array: arr, raw: docs, text: text};
-                                        history[website + '/' + userId] = factory.createUserObject(data, 'mentions', params);
+                                        history[userId] = factory.createUserObject(data, 'mentions', params);
                                         resolve(data);
                                     }
                                 }
@@ -200,47 +201,45 @@ module.exports = {
     },
 
     // Handles the 'next' subcommand
-    next: function(website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
-        if(history.hasOwnProperty(website + '/' + userId)) {
+    next: function(userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
+        if(history.hasOwnProperty(userId)) {
             const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
-            if(allowedCommandNames.includes(history[website + '/' + userId].last_command.name)) {
+            if(allowedCommandNames.includes(history[userId].last_command.name)) {
                 const allowedSubcommandNames = ['open'];
-                if(allowedSubcommandNames.includes(history[website + '/' + userId].last_subcommand.name)) {
-                    return this.open(++history[website + '/' + userId].last_subcommand.param, website, userId);
+                if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
+                    return this.open(++history[userId].last_subcommand.param, userId);
                 }
             }
         }
     },
 
     // Handles the 'open' subcommand
-    open: function(index, website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    open: function(index, userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         index = index ? index - 1 : 0;
         return new Promise(function(resolve, reject) {
-            if(history.hasOwnProperty(website + '/' + userId)) {
+            if(history.hasOwnProperty(userId)) {
                 // Checking if the last command supports the 'open' subcommand
                 const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
-                if(allowedCommandNames.includes(history[website + '/' + userId].last_command.name)) {
-                    if(index >= 0 && index < history[website + '/' + userId].last_query_result.array.length) {
-                        const post = history[website + '/' + userId].last_query_result.raw[index];
-                        let payoutline, postTitle;
-                        if(['mentions', 'replies'].includes(history[website + '/' + userId].last_command.name)) {
+                if(allowedCommandNames.includes(history[userId].last_command.name)) {
+                    if(index >= 0 && index < history[userId].last_query_result.array.length) {
+                        const post = history[userId].last_query_result.raw[index];
+                        let payoutline;
+                        if('mentions' === history[userId].last_command.name) {
                             payoutLine = post.last_payout.getTime() === 0 ? 'Pending Payout: ' + post.pending_payout_value.amount + '$'
                                                                           : 'Author Payout: ' + post.total_payout_value.amount + '$';
-                            postTitle = 'RE: ' + post.root_title;
                         } else {
-                            payoutLine = post.last_payout === '1970-01-01T00:00:00' ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
-                                                                                    : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$'); 
-                            postTitle = post.title;
+                            payoutLine = new Date(post.last_payout + 'Z') === 0 ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
+                                                                                : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$');
                         }
-                        let text = postTitle
-                                + '\n--------------------'
-                                + '\n' + post.body
-                                + '\n--------------------'
-                                + '\n' + payoutLine
-                                + '\n' + post.net_votes + ' upvote' + (post.net_votes !== 1 ? 's' : '') + ', ' + post.children + ' comment' + (post.children !== 1 ? 's' : '');
-                                saveSubcommandInformations('open', ++index, website, userId);
+                        let text = (post.parent_author === '' ? '' : 'RE: ') + (post.root_title || post.title)
+                                 + '\n--------------------'
+                                 + '\n' + markdown.parse(post.body, settings[userId].styling)
+                                 + '\n--------------------'
+                                 + '\n' + payoutLine
+                                 + '\n' + post.net_votes + ' upvote' + (post.net_votes !== 1 ? 's' : '') + ', ' + post.children + ' comment' + (post.children !== 1 ? 's' : '');
+                        saveSubcommandInformations('open', ++index, userId);
                         resolve(text);
                     } else reject(new Error('The index you specified is either too high or too low.'));
                 } else reject(new Error('You can\'t open the result of the previous command.'));
@@ -249,8 +248,8 @@ module.exports = {
     },
 
     // Handles all the commands that request for posts (except user related ones) since they all have the same request/response structure
-    postsCommand: function(fn, params, website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    postsCommand: function(fn, params, userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
 
         const command = params.shift().replace(/\//, '');
 
@@ -266,12 +265,13 @@ module.exports = {
                 if(err) reject(err);
                 else {
                     const arr = [];
+                    const canParse = settings[userId].styling;
                     for(let i = 0; i < res.length; i++) {
-                        arr.push((i + 1) + '. @' + res[i].author + ' posted ' + res[i].title);
+                        arr.push((i + 1) + '. @' + res[i].author + (canParse ? markdown.parser.bold(' **posted** ') : ' posted ') + res[i].title);
                     }
                     const text = arr.join('\n');
                     const data = {array: arr, raw: res, text: text};
-                    history[website + '/' + userId] = factory.createUserObject(data, command, params);
+                    history[userId] = factory.createUserObject(data, command, params);
                     resolve(data);
                 }
             });
@@ -279,29 +279,29 @@ module.exports = {
     },
 
     // Handles the 'previous' subcommand
-    previous: function(website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
-        if(history.hasOwnProperty(website + '/' + userId)) {
+    previous: function(userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
+        if(history.hasOwnProperty(userId)) {
             const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
-            if(allowedCommandNames.includes(history[website + '/' + userId].last_command.name)) {
+            if(allowedCommandNames.includes(history[userId].last_command.name)) {
                 const allowedSubcommandNames = ['open'];
-                if(allowedSubcommandNames.includes(history[website + '/' + userId].last_subcommand.name)) {
-                    return this.open(--history[website + '/' + userId].last_subcommand.param, website, userId);
+                if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
+                    return this.open(--history[userId].last_subcommand.param, userId);
                 }
             }
         }
     },
 
     // Handles the 'replies' command
-    replies: function(params, website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    replies: function(params, userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
 
         params.shift();
 
         params = formatter.params(params);
         return new Promise(function(resolve, reject) {
             if(params[1] === '') {
-                params[1] = settings[website + '/' + userId].steem_account;
+                params[1] = settings[userId].steem_account;
                 if(!params[1]) {
                     return reject(new Error('You have to specify a username.'));
                 }
@@ -311,12 +311,13 @@ module.exports = {
                 if(err) reject(err);
                 else {
                     const arr = [];
+                    const canParse = settings[userId].styling;
                     for(let i = 0; i < res.length; i++) {
-                        arr.push((i + 1) + '. @' + res[i].author + ' replied to ' + res[i].root_title);
+                        arr.push((i + 1) + '. @' + res[i].author + (canParse ? markdown.parser.bold(' **replied to** ') : ' replied to ') + res[i].root_title);
                     }
                     const text = arr.join('\n');
                     const data = {array: arr, raw: res, text: text};
-                    history[website + '/' + userId] = factory.createUserObject(data, 'replies', params);
+                    history[userId] = factory.createUserObject(data, 'replies', params);
                     resolve(data);
                 }
             });
@@ -324,18 +325,18 @@ module.exports = {
     },
 
     // Handles the 'set' command
-    set: function(setting, website, userId, value) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    set: function(setting, userId, value) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         return new Promise(function(resolve, reject) {
             // Boolean setting
             if(commands.set.settings.booleans.includes(setting)) {
-                saveSettings(setting, !settings[website + '/' + userId][setting], website, userId);
-                resolve('The setting \'' + setting + '\' has been successfully set to \'' + settings[website + '/' + userId][setting] + '\'.')
+                saveSettings(setting, !settings[userId][setting], userId);
+                resolve('The setting \'' + setting + '\' has been successfully set to \'' + settings[userId][setting] + '\'.')
             // String setting
             } else if(commands.set.settings.strings.hasOwnProperty(setting)) {
                 // A value has been passed
                 if(value) {
-                    saveSettings(setting, value, website, userId);
+                    saveSettings(setting, value, userId);
                     resolve('The setting \'' + setting + '\' has been successfully set to \'' + value + '\'.');
                 // A value has not been passed
                 } else reject(new Error('The setting \'' + setting + '\' requires ' + commands.set.settings.strings[setting].required + ' to be specified.'));
@@ -347,8 +348,8 @@ module.exports = {
     },
 
     // Handles all the comments that request for posts related to a specific user since they all have the same request/response structure
-    userRelatedPostsCommand: function(fn, params, website, userId) {
-        if(!settings[website + '/' + userId]) settings[website + '/' + userId] = factory.createUserSettingsObject(false, true);
+    userRelatedPostsCommand: function(fn, params, userId) {
+        if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
 
         const command = params.shift().replace(/\//, '');
 
@@ -356,7 +357,7 @@ module.exports = {
 
         return new Promise(function(resolve, reject) {    
             if(params[1] === '') {
-                params[1] = settings[website + '/' + userId].steem_account;
+                params[1] = settings[userId].steem_account;
                 if(!params[1]) {
                     return reject(new Error('You have to specify a username.'));
                 }
@@ -366,13 +367,14 @@ module.exports = {
                 limit: params[0]
             };
 
+            const canParse = settings[userId].styling;
             let inBetween;
             if(commands.comments.keywords.includes(command)) {
                 query.start_author = params[1];
-                inBetween = ' commented on ';
+                inBetween = canParse ? markdown.parser.bold(' **commented on** ') : ' commented on ';
             } else {
                 query.tag = params[1];
-                inBetween = ' posted ';
+                inBetween = canParse ? markdown.parser.bold(' **posted** ') : ' posted ';
             }
 
             fn(query, function(err, res) {
@@ -384,7 +386,7 @@ module.exports = {
                     }
                     const text = arr.join('\n');
                     const data = {array: arr, raw: res, text: text};
-                    history[website + '/' + userId] = factory.createUserObject(data, command, params);
+                    history[userId] = factory.createUserObject(data, command, params);
                     resolve(data);
                 }
             });
@@ -394,16 +396,16 @@ module.exports = {
 }
 
 // Saves the subcommand informations in the history object
-function saveSubcommandInformations(name, param, website, userId) {
-    history[website + '/' + userId].last_subcommand = {
+function saveSubcommandInformations(name, param, userId) {
+    history[userId].last_subcommand = {
         name: name,
         param: param
     };
 }
 
 // Saves new settings in ./data/settings.json and in the settings object
-function saveSettings(setting, value, website, userId) {
-    settings[website + '/' + userId][setting] = value;
+function saveSettings(setting, value, userId) {
+    settings[userId][setting] = value;
     // fs.writeFile('./data/settings.json', JSON.stringify(settings), err => {
     //     if(err) console.log(err);
     // });

@@ -5,7 +5,7 @@ const steem = require('steem');
 const handler = require('../utils/handler');
 const formatter = require('../utils/formatter');
 
-// Telegram allows a max direct message length of 10000 characters per direct message
+// Telegram allows a max direct message length of 4096 characters per direct message
 const MAX_LENGTH = 4096;
 
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
@@ -14,7 +14,7 @@ module.exports = function() {
 
     bot.action(/[0-9]+/, ctx => {
         const index = parseInt(ctx.match.input);
-        handler.open(index, 'telegram', ctx.from.id)
+        handler.open(index, ctx.from.id)
                .then(post => {
                    const parts = formatter.split(post, MAX_LENGTH);
 
@@ -36,7 +36,7 @@ module.exports = function() {
 
     bot.command(['created', 'hot', 'trending'], ctx => {
         const cmd = ctx.message.text.toLowerCase().split(/ +/);
-        handler.postsCommand(steem.api['getDiscussionsBy' + formatter.capitalize(cmd[0].slice(1))], cmd, 'telegram', ctx.from.id)
+        handler.postsCommand(steem.api['getDiscussionsBy' + formatter.capitalize(cmd[0].slice(1))], cmd, ctx.from.id)
                .then(posts => {
                    const keys = [];
                    for(let i = 0; i < posts.array.length; i++) {
