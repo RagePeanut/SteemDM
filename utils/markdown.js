@@ -285,22 +285,14 @@ const mathRefs = {
 const flavors = {
     telegram: {
         html: {
-            hr: '\n* * *',
-            junk: /<\/?(?:p|center|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>/g,
-            strikethrough: {
-                regex: /<(\/?)(?:del|s(?:trike)?)>/g,
-                replacement: '<$1s>'
-            }
+            amper: '[$2]($1)',
+            bold: '*'
         }
     },
     twitter: {
         html: {
-            hr: '\n----------',
-            junk: /<\/?(?:p|center|table|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>|<tr>\s*<\/tr>/g,
-            strikethrough: {
-                regex: /<\/?(?:del|s(?:trike)?)>/g,
-                replacement: '~~'
-            }
+            amper: '$2 ($1)',
+            bold: '**'
         }
     }
 }
@@ -310,19 +302,19 @@ module.exports = {
         const html = flavors[flavor].html;
         return text
             // center, div, table, ul, ol, p, sup, sub, and '<tr></tr>'
-            .replace(html.junk, '')
+            .replace(/<\/?(?:p|center|table|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>|<tr>\s*<\/tr>/g, '')
             // hr
-            .replace(/\n*<hr *\/?>/g, html.hr)
+            .replace(/\n*<hr *\/?>/g, '\n----------')
             // br
             .replace(/<br *\/?>/g, '\n')
-            // strong, b
-            .replace(/<\/?(b|strong)>/g, '**')
             // em, i
-            .replace(/<\/?(i|em)>/g, '*')
+            .replace(/<\/?(i|em)>/g, '_')
+            // strong, b
+            .replace(/<\/?(b|strong)>/g, html.bold)
             // del, s, strike
-            .replace(html.strikethrough.regex, html.strikethrough.replacement)
+            .replace(/<\/?(?:del|s(?:trike)?)>/g, '~~')
             // li
-            .replace(/\s?<li> *((?:(?!<li>).)*)<\/li>/g, '\n* $1')
+            .replace(/\s?<li> *((?:(?!<li>).)*)<\/li>/g, '\n\u2022 $1')
             // h1 --> h6
             .replace(/<h([1-6])> *(.*)<\/h\1>/g, (match, quantity, content) => {
                 return '#'.repeat(quantity).concat(' ', content);
@@ -337,25 +329,34 @@ module.exports = {
                 return '![' + (!alt ? '' : alt[1]) + '](' + source + ')';
             })
             // a
-            .replace(/<a +[^<>]*href="([^"]+)"[^<>]*>([^<>]+)<\/a>/g, '$2 ($1)');
+            .replace(/<a +[^<>]*href="([^"]+)"[^<>]*>([^<>]+)<\/a>/g, html.amper);
     },
 
     parse: function(text, canParse, flavor) {
-        text = this.convertHTML(text, flavor);
-        text = this.parser.horizontalRule(text, flavor);
-        let tmp = this.parser.image(text, flavor);
-        const images = tmp.images;
-        tmp = this.parser.link(tmp.text, flavor);
-        const links = tmp.links;
-        text = tmp.text;
-        if(canParse) {
-            text = this.parser.bold(text, flavor);
-            text = this.parser.italic(text, flavor);
+        if(flavor === 'twitter') {
+            text = this.convertHTML(text, flavor);
+            text = this.parser.horizontalRule(text);
+            let tmp = this.parser.image(text);
+            const images = tmp.images;
+            tmp = this.parser.link(tmp.text, flavor);
+            const links = tmp.links;
+            text = tmp.text;
+            if(canParse) {
+                text = this.parser.bold(text);
+                text = this.parser.italic(text);
+            }
+            text = this.parser.strikethrough(text);
+            text = this.parser.list(text);
+            text = this.replacer.link(text, links);
+            text = this.replacer.image(text, images);
+        } else if(flavor === 'telegram') {
+            text = this.parser.style(text, flavor);
+            text = this.convertHTML(text, flavor);
+            text = this.parser.link(text, flavor);
+            text = this.parser.horizontalRule(text);
+            text = this.parser.list(text);
+            text = this.parser.strikethrough(text);
         }
-        text = this.parser.strikethrough(text, flavor);
-        text = this.parser.list(text, flavor);
-        text = this.replacer.link(text, links, flavor);
-        text = this.replacer.image(text, images, flavor);
         return text;
     },
 
@@ -385,12 +386,17 @@ module.exports = {
             });
         },
 
-        link: function(text) {
-            const links = [];
-            text = text.replace(/\[([^\]]+)]\(([^)]+)\)/g, (match, hypertext, link) => {
-                return hypertext + ' %%%' + (links.push(link) - 1) + '%%%';
-            });
-            return {links: links, text: text};
+        link: function(text, flavor) {
+            if(flavor === 'twitter') {
+                const links = [];
+                text = text.replace(/\[([^\]]+)]\((\S+)\)/g, (match, hypertext, link) => {
+                    return hypertext + ' %%%' + (links.push(link) - 1) + '%%%';
+                });
+                return {links: links, text: text};
+            };
+            return text.replace(/\[([^\]]+)]\((\S+)\)/g, (match, hypertext, link) => {
+                return '[' + hypertext + '](' + link.replace('(', '%28').replace(')', '%29') + ')';
+            })
         },
 
         list: function(text) {
@@ -400,6 +406,14 @@ module.exports = {
         strikethrough: function(text) {
             return text.replace(/~~(?=\S)([\s\S]*?\S)~~/g, (match, content) => {
                 return content.split('').map(char => char.concat('\u0335')).join('');
+            });
+        },
+        
+        style: function(text, flavor) {
+            return text.replace(/([_*]+)\S+\1/g, (match, md, content) => {
+                if(md.length === 1) return '_' + content + '_';
+                else if(md.length === 2) return flavors[flavor].html.bold + content + flavors[flavor].html.bold;
+                return '_' + flavors[flavor].html.bold + content + flavors[flavor].html.bold + '_';
             });
         }
 

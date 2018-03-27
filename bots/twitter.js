@@ -98,7 +98,7 @@ function processDirectMessage(dm) {
             break;
         // Open
         case commands.open.keywords.includes(cmd[0]):
-            handler.open(cmd[1], userId)
+            handler.open(cmd[1], userId, 'twitter')
                    .then(post => sendDirectMessage(post, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
@@ -122,7 +122,7 @@ function processDirectMessage(dm) {
             break;
         // Trending
         case commands.trending.keywords.includes(cmd[0]):
-            handler.postsCommand(steem.api.getDiscussionsByTrending, userId, cmd)
+            handler.postsCommand(steem.api.getDiscussionsByTrending, cmd, userId)
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;

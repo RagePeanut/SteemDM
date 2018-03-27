@@ -235,8 +235,8 @@ module.exports = {
                             payoutLine = post.last_payout.getTime() === 0 ? 'Pending Payout: ' + post.pending_payout_value.amount + '$'
                                                                           : 'Author Payout: ' + post.total_payout_value.amount + '$';
                         } else {
-                            payoutLine = new Date(post.last_payout + 'Z') === 0 ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
-                                                                                : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$');
+                            payoutLine = new Date(post.last_payout + 'Z').getTime() === 0 ? 'Pending Payout: ' + post.pending_payout_value.replace(/ SBD/, '$')
+                                                                                          : 'Author Payout: ' + post.total_payout_value.replace(/ SBD/, '$');
                         }
                         let text = (post.parent_author === '' ? '' : 'RE: ') + (post.root_title || post.title)
                                  + '\n--------------------'

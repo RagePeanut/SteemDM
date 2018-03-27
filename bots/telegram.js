@@ -19,7 +19,7 @@ module.exports = function() {
                    const parts = formatter.split(post, MAX_LENGTH);
 
                    for(let i = 0; i < parts.length - 1; i++) {
-                       ctx.reply(parts[i])
+                       ctx.replyWithMarkdown(parts[i])
                           .catch(err => ctx.reply(err.message));
                    }
 
@@ -31,7 +31,7 @@ module.exports = function() {
                    ctx.replyWithMarkdown(parts[parts.length - 1], keyboard)
                       .catch(err => ctx.reply(err.message));
                })
-               .catch(err => ctx.reply(err.message));
+               .catch(err => {ctx.reply(err.message)});
     });
 
     bot.command('mentions', ctx => {
@@ -44,7 +44,7 @@ module.exports = function() {
                .then(posts => {
                    const keys = [];
                    for(let i = 0; i < posts.array.length; i++) {
-                       keys.push([Markup.callbackButton(posts.array[i], i)]);
+                       keys.push([Markup.callbackButton(posts.array[i], i + 1)]);
                    }
                    const keyboard = Markup.inlineKeyboard(keys).extra();
                    ctx.reply('Here are the posts you requested', keyboard)
