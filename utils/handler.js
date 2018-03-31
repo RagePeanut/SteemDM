@@ -6,22 +6,24 @@ const factory = require('./factory');
 const markdown = require('./markdown');
 
 const commands = require('../objects/commands.json');
-const history = {};
 let settings = {};
+const history = {};
+const canParsePostsLists = {
+    telegram: false,
+    twitter: true
+}
 
 // Connection string for MongoDB
 const CONNECTION_STRING = 'mongodb://steemit:steemit@mongo1.steemdata.com:27017/SteemData'
 
 module.exports = {
     // Handles the 'account' command
-    account: function(param, userId) {
+    account: function(param, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         return new Promise(function(resolve, reject) {
             if(!param) {
                 if(settings[userId].steem_account) param = settings[userId].steem_account;
-                else {
-                    return reject(new Error('You have to specify a username.'));
-                }
+                else return reject(new Error('You have to specify a username.'));
             }
         
             steem.api.getAccounts([param], function(err, res) {
@@ -43,35 +45,45 @@ module.exports = {
                                         if(rewardErr) rewardFund = {recent_claims: '0', reward_balance: '0.000 STEEM'};
                                         steem.api.getCurrentMedianHistoryPrice(async function(feedErr, feedPrice) {
                                             if(feedErr) feedPrice = {base: '0.000 SBD', quote: '1.000 STEEM'};
-                                            let text = (canParse ? markdown.parser.bold('**Account**') : 'Account')
+                                            const boldParser = markdown.parser[website === 'twitter' ? 'bold' : 'style'];
+                                            const socialLinksToCheck = ['website', 'facebook', 'twitter', 'youtube', 'instagram', 'github'];
+                                            let hasSocialLinks = false;
+                                            while(!hasSocialLinks && socialLinksToCheck.length > 1) {
+                                                const socialLink = socialLinksToCheck.shift();
+                                                hasSocialLinks = account.profile[socialLink] && account.profile[socialLink] !== '';
+                                            }
+                                            let text = (canParse ? boldParser('**Account**', website) : 'Account')
                                                      + '\nName: ' + (account.profile.name ? account.profile.name + ' (' + param + ')' : param)
                                                      + '\nReputation: ' + formatter.reputation(account.reputation)
                                                      + (account.profile.about ? '\nAbout: ' + account.profile.about : '')
                                                      + '\nAge: ' + formatter.age(account.created + 'Z', true, false, 'days')
                                                      + (account.profile.location ? '\nLocation: ' + account.profile.location : '')
-                                                     + (account.profile.website || account.profile.github || account.profile.twitter ? '\n\n' + 'Links' : '')
-                                                     + (account.profile.website ? '\nWebsite: ' + account.profile.website : '')
-                                                     + (account.profile.github ? '\nGitHub: https://github.com/' + account.profile.github : '')
-                                                     + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + account.profile.twitter : '')
-                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Donations**') : 'Donations')
+                                                     + (hasSocialLinks ? '\n\n' + (canParse ? boldParser('**Links**', website) : 'Links') : '')
+                                                     + (account.profile.website ? '\nWebsite: ' + formatter.encodedURL(account.profile.website) : '')
+                                                     + (account.profile.facebook ? '\nFacebook: https://facebook.com/' + formatter.encodedURL(account.profile.facebook) : '')
+                                                     + (account.profile.twitter ? '\nTwitter: https://twitter.com/' + formatter.encodedURL(account.profile.twitter) : '')
+                                                     + (account.profile.youtube ? '\nYouTube: https://www.youtube.com/user/' + formatter.encodedURL(account.profile.youtube) : '')
+                                                     + (account.profile.instagram ? '\nInstagram: https://instagram.com/' + formatter.encodedURL(account.profile.instagram) : '')
+                                                     + (account.profile.github ? '\nGitHub: https://github.com/' + formatter.encodedURL(account.profile.github) : '')
+                                                     + '\n\n' + (canParse ? boldParser('**Donations**', website) : 'Donations')
                                                      + (account.profile.bitcoin ? '\nBitcoin: ' + account.profile.bitcoin : '')
                                                      + (account.profile.ethereum ? '\nEthereum: ' + account.profile.ethereum : '')
                                                      + '\nSteem: ' + param
-                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Voting**') : 'Voting')
+                                                     + '\n\n' + (canParse ? boldParser('**Voting**', website) : 'Voting')
                                                      + '\nVoting Weight: ' + formatter.number(steemPower.owned - steemPower.delegated + steemPower.received, 3, 'en-US') + ' SP (' + formatter.currency(formatter.estimateVoteValue(account, rewardFund, feedPrice), 2, 'en-US', 'USD') +  ')'
                                                      + '\nVoting Power: ' + formatter.currentVotingPower(account, true)  + '%'
                                                      + '\nBandwith Remaining: ' + Math.floor((100 - (100 * bandwidth.used / bandwidth.allocated)) * 100) / 100 + '% (used ' + formatter.bytes(bandwidth.used) + ' of ' + formatter.bytes(bandwidth.allocated) + ')' 
                                                      + '\nVote Count: ' + formatter.number(votes.length, 0, 'en-US') + ' votes'
                                                      + '\nVote Count (24 hours): ' + formatter.number(votes.filter(vote => Date.now() - new Date(vote.time) <= 24 * 60 * 60 * 1000).length, 0, 'en-US') + ' votes'
-                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Posts**') : 'Posts')
+                                                     + '\n\n' + (canParse ? boldParser('**Posts**', website) : 'Posts')
                                                      + '\nPost Count: ' + formatter.number(account.post_count, 0, 'en-US')  + ' posts'
                                                      + '\nPost Count (24 hours): ' + history.filter(trx => Date.now() - new Date(trx[1].timestamp) <= 24 * 60 * 60 * 1000 && trx[1].op[0] === 'comment' && trx[1].op[1].author === param && !/@@ -\d+,?\d+ \+\d+,?\d+ @@/.test(trx[1].op[1].body)).length + ' posts'
-                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Wallet**') : 'Wallet')
+                                                     + '\n\n' + (canParse ? boldParser('**Wallet**', website) : 'Wallet')
                                                      + '\nAccount Value: ' + formatter.currency(await steem.formatter.estimateAccountValue(account), 2, 'en-US', 'USD')
                                                      + '\nSteem Power: ' + formatter.number(steemPower.owned, 3, 'en-US') + ' STEEM (' + (steemPower.delegated < steemPower.received ? '+' : '') + formatter.number(-steemPower.delegated + steemPower.received, 3, 'en-US') + ' STEEM)'
                                                      + '\nBalance: ' + account.balance  + ' / ' + account.sbd_balance
                                                      + '\nSavings: ' + account.savings_balance + ' / ' + account.savings_sbd_balance
-                                                     + '\n\n' + (canParse ? markdown.parser.bold('**Witnesses**') : 'Witnesses')
+                                                     + '\n\n' + (canParse ? boldParser('**Witnesses**', website) : 'Witnesses')
                                                      + '\nWitness Vote Count: ' + account.witnesses_voted_for
                                                      + (account.witnesses_voted_for > 0 ? '\nWitness Votes: ' + account.witness_votes.join(', ') : '');
                                             resolve(text);
@@ -96,7 +108,7 @@ module.exports = {
                     const allowedSubcommandNames = ['open'];
                     if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
                         history[userId].last_subcommand = {name: '', param: ''};
-                        return resolve(history[userId].last_query_result.text);
+                        return resolve(history[userId].last_query_result);
                     }
                 }
             }
@@ -105,20 +117,21 @@ module.exports = {
     },
 
     // Handles the 'help' command
-    help: function(command, userId) {
+    help: function(command, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         const lineBreak = '\n--------------------';
         const canParse = settings[userId].styling;
         return new Promise(function(resolve, reject) {
+            const boldParser = markdown.parser[website === 'twitter' ? 'bold' : 'style'];
             if(command){
                 if(!commands[command]) {
                     return reject(new Error('The command \'' + command + '\' doesn\'t exist.\nPlease, write \'help\' to get a list of existing commands.'));
                 }
                 let response = commands[command].desc_start + lineBreak + '\nUse this command through one of these keywords:\n' + commands[command].keywords.join(', ') + lineBreak;
                 if(commands[command].params.length > 0) {
-                    response += '\n' + (canParse ? markdown.parser.bold('**Parameters:**') : 'Parameters:');
+                    response += '\n' + (canParse ? boldParser('**Parameters:**', website) : 'Parameters:');
                     commands[command].params.forEach(param => {
-                        response += '\n- ' + (canParse ? markdown.parser.bold('**' + param.name + '**') : param.name) + ' : ' + param.text;
+                        response += '\n- ' + (canParse ? boldParser('**' + param.name + '**', website) : param.name) + ' : ' + param.text;
                     });
                 } else response = response.concat('\nThere is no parameters available.');
                 if(commands[command].desc_end !== '') response += lineBreak + commands[command].desc_end;
@@ -130,8 +143,10 @@ module.exports = {
                 const keys = Object.keys(commands);
                 const arr = [];
                 for(let i = 0; i < keys.length; i++) {
-                    arr.push(markdown.parser.bold('- **' + keys[i] + '** : ') + commands[keys[i]].quick_desc);
-                    if(commands[keys[i]].important_param) arr.push('- ' + (canParse ? markdown.parser.italic(markdown.parser.bold('**' + keys[i] + ' _' + commands[keys[i]].important_param.name + '_**')) : '- ' + keys[i] + ' ' + commands[keys[i]].important_param.name) + ' : ' + commands[keys[i]].important_param.text);
+                    arr.push((canParse ? boldParser('- **' + keys[i] + '** : ', website) : '- ' + keys[i] + ' : ') + commands[keys[i]].quick_desc);
+                    if(commands[keys[i]].important_param) arr.push('- ' + (canParse ? (website === 'twitter' ? markdown.parser.italic(markdown.parser.bold('**' + keys[i] + ' _' + commands[keys[i]].important_param.name + '_**'))
+                                                                                                             : boldParser('**' + keys[i] + '**_' + commands[keys[i]].important_param.name, website) + '_ : ' + commands[keys[i]].important_param.text)
+                                                                                    : keys[i] + ' ' + commands[keys[i]].important_param.name) + ' : ' + commands[keys[i]].important_param.text);
                 }
                 text += arr.join('\n');
                 const data = {array: arr, raw: commands, text: text};
@@ -142,7 +157,7 @@ module.exports = {
     },
 
     // Handles the 'mentions' command
-    mentions: function(params, userId) {
+    mentions: function(params, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         
         params.shift();
@@ -184,10 +199,11 @@ module.exports = {
                                         if(docs.length == 0) reject(new Error('No mention. Either the specified user never got mentioned or the user \'' + params[1] + '\' doesn\'t exist.'));
                                         else if(types.length > 1) docs = docs.sort((a, b) => b.created - a.created).slice(0, docs.length > params[0] ? params[0] : docs.length);
                                         
-                                        const canParse = settings[userId].styling;
+                                        const canParse = settings[userId].styling && canParsePostsLists[website];
+                                        const boldParser = markdown.parser[website === 'twitter' ? 'bold' : 'style'];
                                         const arr = [];
                                         for(let i = 0; i < docs.length; i++) {
-                                            arr.push((i + 1) + '. @' + docs[i].author + (canParse ? markdown.parser.bold(' **mentioned this user in** ') : ' mentioned this user in') + (docs[i].parent_author === '' ? docs[i].title : (canParse ? markdown.parser.bold('**a comment on** ') : 'a comment on ') + docs[i].root_title));
+                                            arr.push((i + 1) + '. @' + docs[i].author + (canParse ? boldParser(' **mentioned this user in** ', website) : ' mentioned this user in') + (docs[i].parent_author === '' ? docs[i].title : (canParse ? boldParser('**a comment on** ', website) : 'a comment on ') + docs[i].root_title));
                                         }
                                         const text = arr.join('\n');
                                         const data = {array: arr, raw: docs, text: text};
@@ -205,24 +221,25 @@ module.exports = {
     },
 
     // Handles the 'next' subcommand
-    next: function(userId) {
+    next: function(userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         if(history.hasOwnProperty(userId)) {
             const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
             if(allowedCommandNames.includes(history[userId].last_command.name)) {
                 const allowedSubcommandNames = ['open'];
                 if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
-                    history[userId].last_subcommand.param = ++history[userId].last_subcommand.name % history[userId].last_query_result.array.length;
-                    return this.open(history[userId].last_subcommand.param, userId);
+                    history[userId].last_subcommand.param = ++history[userId].last_subcommand.param % history[userId].last_query_result.array.length;
+                    return this.open(history[userId].last_subcommand.param, userId, website);
                 }
             }
         }
+        return Promise.reject(new Error('\'next\' can\'t be called on the previous result.'));
     },
 
     // Handles the 'open' subcommand
     open: function(index, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
-        index = index ? index - 1 : 0;
+        index = index ? parseInt(index) - 1 : 0;
         return new Promise(function(resolve, reject) {
             if(history.hasOwnProperty(userId)) {
                 // Checking if the last command supports the 'open' subcommand
@@ -245,7 +262,7 @@ module.exports = {
                                  + '\n' + payoutLine
                                  + '\n' + post.net_votes + ' upvote' + (post.net_votes !== 1 ? 's' : '') + ', ' + post.children + ' comment' + (post.children !== 1 ? 's' : '');
                         saveSubcommandInformations('open', ++index, userId);
-                        resolve(text);
+                        resolve({content: text, index: index, maxIndex: history[userId].last_query_result.array.length});
                     } else reject(new Error('The index you specified is either too high or too low.'));
                 } else reject(new Error('You can\'t open the result of the previous command.'));
             } else reject(new Error('You must get a list of posts first.'));
@@ -253,10 +270,10 @@ module.exports = {
     },
 
     // Handles all the commands that request for posts (except user related ones) since they all have the same request/response structure
-    postsCommand: function(fn, params, userId) {
+    postsCommand: function(fn, params, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
 
-        const command = params.shift().replace(/\//, '');
+        const command = params.shift();
 
         params = formatter.params(params);
 
@@ -270,9 +287,10 @@ module.exports = {
                 if(err) reject(err);
                 else {
                     const arr = [];
-                    const canParse = settings[userId].styling;
+                    const canParse = settings[userId].styling && canParsePostsLists[website];
+                    const boldParser = markdown.parser[website === 'twitter' ? 'bold' : 'style'];
                     for(let i = 0; i < res.length; i++) {
-                        arr.push((i + 1) + '. @' + res[i].author + (canParse ? markdown.parser.bold(' **posted** ') : ' posted ') + res[i].title);
+                        arr.push((i + 1) + '. @' + res[i].author + (canParse ? boldParser(' **posted** ', website) : ' posted ') + res[i].title);
                     }
                     const text = arr.join('\n');
                     const data = {array: arr, raw: res, text: text};
@@ -284,7 +302,7 @@ module.exports = {
     },
 
     // Handles the 'previous' subcommand
-    previous: function(userId) {
+    previous: function(userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
         if(history.hasOwnProperty(userId)) {
             const allowedCommandNames = ['blog', 'comments', 'created', 'feed', 'hot', 'mentions', 'replies', 'trending'];
@@ -293,14 +311,16 @@ module.exports = {
                 if(allowedSubcommandNames.includes(history[userId].last_subcommand.name)) {
                     history[userId].last_subcommand.param = history[userId].last_subcommand.param === 0 ? history[userId].last_query_result.array.length
                                                                                                         : --history[userId].last_subcommand.param % history[userId].last_query_result.array.length;
-                    return this.open(history[userId].last_subcommand.param, userId);
+                    return this.open(history[userId].last_subcommand.param, userId, website);
                 }
             }
         }
+        return Promise.reject(new Error('\'previous\' can\'t be called on the previous result.'));
+
     },
 
     // Handles the 'replies' command
-    replies: function(params, userId) {
+    replies: function(params, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
 
         params.shift();
@@ -318,9 +338,10 @@ module.exports = {
                 if(err) reject(err);
                 else {
                     const arr = [];
-                    const canParse = settings[userId].styling;
+                    const canParse = settings[userId].styling && canParsePostsLists[website];
+                    const boldParser = markdown.parser[website === 'twitter' ? 'bold' : 'style'];
                     for(let i = 0; i < res.length; i++) {
-                        arr.push((i + 1) + '. @' + res[i].author + (canParse ? markdown.parser.bold(' **replied to** ') : ' replied to ') + res[i].root_title);
+                        arr.push((i + 1) + '. @' + res[i].author + (canParse ? boldParser(' **replied to** ', website) : ' replied to ') + res[i].root_title);
                     }
                     const text = arr.join('\n');
                     const data = {array: arr, raw: res, text: text};
@@ -355,9 +376,9 @@ module.exports = {
     },
 
     // Handles all the comments that request for posts related to a specific user since they all have the same request/response structure
-    userRelatedPostsCommand: function(fn, params, userId) {
+    userRelatedPostsCommand: function(fn, params, userId, website) {
         if(!settings[userId]) settings[userId] = factory.createUserSettingsObject(false, true);
-
+        
         const command = params.shift().replace(/\//, '');
 
         params = formatter.params(params);
@@ -374,14 +395,15 @@ module.exports = {
                 limit: params[0]
             };
 
-            const canParse = settings[userId].styling;
+            const canParse = settings[userId].styling && canParsePostsLists[website];
+            const boldParser = markdown.parser[website === 'twitter' ? 'bold' : 'style'];
             let inBetween;
             if(commands.comments.keywords.includes(command)) {
                 query.start_author = params[1];
-                inBetween = canParse ? markdown.parser.bold(' **commented on** ') : ' commented on ';
+                inBetween = canParse ? boldParser(' **commented on** ', website) : ' commented on ';
             } else {
                 query.tag = params[1];
-                inBetween = canParse ? markdown.parser.bold(' **posted** ') : ' posted ';
+                inBetween = canParse ? boldParser(' **posted** ', website) : ' posted ';
             }
 
             fn(query, function(err, res) {

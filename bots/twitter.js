@@ -3,6 +3,7 @@ const steem = require('steem');
 
 const handler = require('../utils/handler');
 const factory = require('../utils/factory');
+const formatter = require('../utils/formatter');
 
 const commands = require('../objects/commands.json');
 
@@ -38,79 +39,84 @@ function processDirectMessage(dm) {
     switch(true) {
         // Account
         case commands.account.keywords.includes(cmd[0]):
-            handler.account(cmd[1], userId)
+            handler.account(cmd[1], userId, 'twitter')
                    .then(details => sendDirectMessage(details, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Blog
         case commands.blog.keywords.includes(cmd[0]):
-            handler.userRelatedPostsCommand(steem.api.getDiscussionsByBlog, cmd, userId)
+            cmd[0] = 'blog';
+            handler.userRelatedPostsCommand(steem.api.getDiscussionsByBlog, cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Close
         case commands.close.keywords.includes(cmd[0]):
             handler.close(userId)
-                   .then(lastResult => sendDirectMessage(lastResult, userId))
+                   .then(lastResult => sendDirectMessage(lastResult.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Comments
         case commands.comments.keywords.includes(cmd[0]):
-            handler.userRelatedPostsCommand(steem.api.getDiscussionsByComments, cmd, userId)
+            cmd[0] = 'comments';
+            handler.userRelatedPostsCommand(steem.api.getDiscussionsByComments, cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Created
         case commands.created.keywords.includes(cmd[0]):
-            handler.postsCommand(steem.api.getDiscussionsByCreated, cmd, userId)
+            cmd[0] = 'created';
+            handler.postsCommand(steem.api.getDiscussionsByCreated, cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Feed
         case commands.feed.keywords.includes(cmd[0]):
-            handler.userRelatedPostsCommand(steem.api.getDiscussionsByFeed, cmd, userId)
+            cmd[0] = 'feed';
+            handler.userRelatedPostsCommand(steem.api.getDiscussionsByFeed, cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Help
         case commands.help.keywords.includes(cmd[0]):
-            handler.help(cmd[1], userId)
+            handler.help(cmd[1], userId, 'twitter')
                    .then(listData => sendDirectMessage(typeof listData === 'object' ? listData.text : listData, userId))
                    .catch(err => sendDirectMessage(err.message, userId));  
             break;
         // Hot
         case commands.hot.keywords.includes(cmd[0]):
-            handler.postsCommand(steem.api.getDiscussionsByHot, cmd, userId)
+            cmd[0] = 'hot';
+            handler.postsCommand(steem.api.getDiscussionsByHot, cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Mentions
         case commands.mentions.keywords.includes(cmd[0]):
-            handler.mentions(cmd, userId)
+            handler.mentions(cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Next
         case commands.next.keywords.includes(cmd[0]):
-            handler.next(userId)
-                   .then(post => sendDirectMessage(post, userId))
+            handler.next(userId, 'twitter')
+                   .then(post => sendDirectMessage(post.content, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Open
         case commands.open.keywords.includes(cmd[0]):
             handler.open(cmd[1], userId, 'twitter')
-                   .then(post => sendDirectMessage(post, userId))
+                   .then(post => sendDirectMessage(post.content, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Previous
         case commands.previous.keywords.includes(cmd[0]):
-            handler.previous(userId)
-                   .then(post => sendDirectMessage(post, userId))
+            handler.previous(userId, 'twitter')
+                   .then(post => sendDirectMessage(post.content, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
         // Replies
         case commands.replies.keywords.includes(cmd[0]):
-            handler.replies(cmd, userId)
+            handler.replies(cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
@@ -122,7 +128,8 @@ function processDirectMessage(dm) {
             break;
         // Trending
         case commands.trending.keywords.includes(cmd[0]):
-            handler.postsCommand(steem.api.getDiscussionsByTrending, cmd, userId)
+            cmd[0] = 'trending';
+            handler.postsCommand(steem.api.getDiscussionsByTrending, cmd, userId, 'twitter')
                    .then(listData => sendDirectMessage(listData.text, userId))
                    .catch(err => sendDirectMessage(err.message, userId));
             break;
@@ -131,21 +138,25 @@ function processDirectMessage(dm) {
             // Check if the command is a number, if it is then it's an 'open' shortcut
             // Else it's a wrong command
             if(isNaN(cmd[0])) sendDirectMessage('The command \'' + cmd[0] + '\' doesn\'t exist.\nPlease, write \'help\' to get a list of existing commands.');
-            else handler.open(cmd[0], userId)
-                        .then(post => sendDirectMessage(post, userId))
+            else handler.open(cmd[0], userId, 'twitter')
+                        .then(post => sendDirectMessage(post.content, userId))
                         .catch(err => sendDirectMessage(err.message, userId));
     }
 
 }
 
 // Sends a direct message to the user
+// function sendDirectMessage(text, userId) {
+//     // Splitting the string into multiple messages if it's too long
+//     if(text.length > MAX_LENGTH) {
+//         twitter.post('direct_messages/events/new', factory.createDirectMessageObject(userId, text.substr(0, MAX_LENGTH)), () => {
+//             sendDirectMessage(text.substr(MAX_LENGTH, text.length - MAX_LENGTH), userId);
+//         });
+//     } else {
+//         twitter.post('direct_messages/events/new', factory.createDirectMessageObject(userId, text));
+//     }
+// }
 function sendDirectMessage(text, userId) {
-    // Splitting the string into multiple messages if it's too long
-    if(text.length > MAX_LENGTH) {
-        twitter.post('direct_messages/events/new', factory.createDirectMessageObject(userId, text.substr(0, MAX_LENGTH)), () => {
-            sendDirectMessage(text.substr(MAX_LENGTH, text.length - MAX_LENGTH), userId);
-        });
-    } else {
-        twitter.post('direct_messages/events/new', factory.createDirectMessageObject(userId, text));
-    }
+    formatter.split(text, MAX_LENGTH)
+             .forEach(part => twitter.post('direct_messages/events/new', factory.createDirectMessageObject(userId, part)));
 }

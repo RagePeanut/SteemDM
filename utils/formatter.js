@@ -43,6 +43,10 @@ module.exports = {
         return age;
     },
 
+    backslash: function(text) {
+        return text.replace(/[`]/g, '\\$&');
+    },
+
     bytes: function(number, decimals) {
         const units = ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb', 'eb', 'zb', 'yb'];
         let conversions = 0;
@@ -94,6 +98,10 @@ module.exports = {
         const delay = (new Date() - new Date(account.last_vote_time + 'Z')) / 1000;
         const votingPower = account.voting_power + (10000 * delay / fullFillingTime);
         return toPercentage ? Math.min(votingPower / 100, 100).toFixed(2) : Math.min(votingPower, 10000);
+    },
+
+    encodedURL: function(url) {
+        return url.replace(/[*_()-]/g, match => '%' + match.charCodeAt(0).toString(16));
     },
 
     estimateVoteValue: function(account, rewardFund, feedPrice) {
@@ -167,7 +175,7 @@ module.exports = {
     },
 
     split: function(string, limit) {
-        return string.match(new RegExp('[\\s\\S]{1,' + limit + '}', 'g')) || [];
+        return string.match(new RegExp('[\\s\\S]{1,' + --limit + '}(?:\\s|$)', 'g')) || [];
     }
 
 }
