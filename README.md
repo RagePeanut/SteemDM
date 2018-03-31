@@ -1,14 +1,16 @@
-# SteemTwitterBot
+# SteemDM (1.0.0)
 An Open-Source Twitter bot that lets you interact with the Steem blockchain through direct messages.
 
 ## Try it !
-You can find a deployment of this bot at the following address: [https://twitter.com/SteemBot_](https://twitter.com/SteemBot_)
+You can find a deployment of this bot at the following addresses.
+**Telegram:** http://t.me/SteemDMBot
+**Twitter:** https://twitter.com/SteemDM
 
 ## Deploy
 **Required:** [Git](https://git-scm.com/), [NPM](https://www.npmjs.com/), [Node.js](https://nodejs.org/), a [Twitter](https://twitter.com/) account that will be used by the bot. If you wish to deploy your own version of this bot, follow these steps carefully.
 1. **Cloning**
 ```
-git clone https://github.com/RagePeanut/SteemTwitterBot.git
+git clone https://github.com/RagePeanut/SteemDM.git
 ```
 2. **Setting up an app for your account**
 
@@ -20,7 +22,7 @@ You will come accross some **process.env.SOMETHING** fields in the **app.js** fi
 
 4. **Building the bot**
 ```
-cd SteemTwitterBot/
+cd SteemDM/
 npm install
 ```
 5. **Starting the bot**
@@ -34,6 +36,8 @@ npm start
 **Tolga Tezel** for [Twit](https://github.com/ttezel/twit)
 
 **MongoDB** for [MongoDB](https://github.com/mongodb/node-mongodb-native)
+
+**@furion** for [SteemData](https://github.com/SteemData)
 
 ## Social networks
 **Steemit:** https://steemit.com/@ragepeanut
