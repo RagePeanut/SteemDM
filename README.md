@@ -3,7 +3,8 @@ An Open-Source collection of bots that let you interact with the Steem blockchai
 
 ## Try it !
 You can find deployments of these bots at the following addresses.
-**Telegram:** http://t.me/SteemDMBot
+
+**Telegram:** http://t.me/SteemDMBot<br>
 **Twitter:** https://twitter.com/SteemDM
 
 ## Deploy
