@@ -1,7 +1,7 @@
 {
-  "name": "steemtwitterbot",
+  "name": "steemdm",
   "version": "1.0.0",
-  "description": "A Twitter bot that lets you interact with the Steem blockchain through direct messages.",
+  "description": "A collection of bots that let you interact with the Steem blockchain through direct messages.",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
