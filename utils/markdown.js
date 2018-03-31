@@ -1,3 +1,5 @@
+const formatter = require('./formatter');
+
 const refs = {
     'A': {
         bold: '\u{1D5D4}',
@@ -228,7 +230,6 @@ const refs = {
         italic: '\u{1D63B}'
     }
 }
-
 const mathRefs = {
     '\u{1D5D4}': '\u{1D63C}',
     '\u{1D5D5}': '\u{1D63D}',
@@ -283,88 +284,164 @@ const mathRefs = {
     '\u{1D606}': '\u{1D66E}',
     '\u{1D607}': '\u{1D66F}'
 }
-
-module.exports = function() {
-
-    this.parseTo = (text, to, allowed) => {
-        if(allowed) {
-            // Checks the chars individually and applies the required styling to them if supported
-            if(to === 'strikethrough') return text.split('').map(char => char.concat('\u0335')).join('');
-            if(to === 'italic') text = text.replace(/[\u{1D5D4}-\u{1D607}]/gu, match => mathRefs[match]);
-            return text.split('').map(char => refs[char] ? refs[char][to] : char).join('');
-        } 
-        return text;
+const flavors = {
+    telegram: {
+        html: {
+            amper: '[$2]($1)',
+            bold: '*'
+        }
+    },
+    twitter: {
+        html: {
+            amper: '$2 ($1)',
+            bold: '**'
+        }
     }
+}
+module.exports = {
 
-    this.parse = (text, stylingAllowed) => {
-
-        const images = [];
-        const links = [];
-
-        text = text
-            // Removing <center>, <div>, <table>, <ul>, <ol>, <p>, <sup>, <sub> and '<tr></tr>'
-            .replace(/<\/?(?:p|center|table|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>|<tr>\s*<\/tr>/g, '')
-            // HR
-            .replace(/(\n+|^) {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(\n+|$)/g, '$1----------$3')
-            .replace(/<hr *\/?>/g, '\n----------\n')
-            // HTML to Markdown
-            // -- Break : <br>
-            .replace(/<br *\/?>/g, '\n')
-            // -- Bold : <b> and <strong>
-            .replace(/<\/?(b|strong)>/g, '**')
-            // -- Italic : <i> and <em>
-            .replace(/<\/?(i|em)>/g, '*')
-            // -- Strikethrough : <del>, <s> and <strike>
-            .replace(/<\/?(del|s(trike)?)>/g, '~~')
-            // -- List items : <li>
-            .replace(/\s?<li> *((?:(?!<li>).)*)<\/li>/g, '\n* $1')
-            // -- Titles : <h1> to <h6>
+    convertHTML: function(text, flavor) {
+        const html = flavors[flavor].html;
+        return text
+            // center, div, table, ul, ol, p, sup, sub, and '<tr></tr>'
+            .replace(/<\/?(?:p|html|center|table|[ou]l|su[pb]|div(?: +class=" *(?:text-justify|pull-(?:right|left))")?)>|<tr>\s*<\/tr>/g, '')
+            // h1 --> h6
             .replace(/<h([1-6])> *(.*)<\/h\1>/g, (match, quantity, content) => {
                 return '#'.repeat(quantity).concat(' ', content);
             })
-            // -- Table rows (and their content) : <tr> and <td>
+            // hr
+            .replace(/\n*<hr *\/?>\n*/g, '\n----------\n')
+            // br
+            .replace(/<br *\/?>/g, '\n')
+            // em, i
+            .replace(/<\/?(i|em)>/g, '_')
+            // strong, b
+            .replace(/<\/?(b|strong)>/g, html.bold)
+            // del, s, strike
+            .replace(/<\/?(?:del|s(?:trike)?)>/g, '~~')
+            // li
+            .replace(/\s?<li> *((?:(?!<li>).)*)<\/li>/g, '\n\u2022 $1')
+            // tr, td
             .replace(/\n?<tr>((?:(?!<tr>)[\s\S])*)<\/tr>/g, (match, content) => {
                 return '\n|' + content.replace(/<td>((?:(?!<td>)[\s\S])*)<\/td>/g, ' $1 |');
             })
-            // -- Images : <img src="..." alt="...">
+            // img
             .replace(/<img +[^<>]*src="([^"]+)"[^<>]*\/?>/g, (match, source) => {
                 const alt = match.match(/alt="([^"]+)"/);
                 return '![' + (!alt ? '' : alt[1]) + '](' + source + ')';
             })
-            // -- Links : <a href="...">
-            .replace(/<a +[^<>]*href="([^"]+)"[^<>]*>([^<>]+)<\/a>/g, '$2 ($1)')
-            // Putting images aside
-            .replace(/!\[([^\]]*)]\(([^)]+)\)/g, (match, alt, url) => {
+            // a
+            .replace(/<a +[^<>]*href="([^"]+)"[^<>]*>([^<>]+)<\/a>/g, html.amper);
+    },
+
+    parse: function(text, canParse, flavor) {
+        text = this.parser.url(text);
+        if(flavor === 'twitter') {
+            text = this.convertHTML(text, flavor);
+            text = this.parser.horizontalRule(text);
+            let tmp = this.parser.image(text);
+            const images = tmp.images;
+            tmp = this.parser.link(tmp.text);
+            const links = tmp.links;
+            text = tmp.text;
+            if(canParse) {
+                text = this.parser.bold(text);
+                text = this.parser.italic(text);
+            }
+            text = this.parser.strikethrough(text);
+            text = this.parser.list(text);
+            text = this.replacer.link(text, links, flavor);
+            text = this.replacer.image(text, images);
+        } else if(flavor === 'telegram') {
+            text = this.parser.style(text, flavor);
+            text = this.convertHTML(text, flavor);
+            let tmp = this.parser.image(text);
+            const images = tmp.images;
+            tmp = this.parser.link(tmp.text);
+            const links = tmp.links;
+            text = this.parser.horizontalRule(text);
+            text = this.parser.list(text);
+            text = this.parser.strikethrough(text);
+            text = this.replacer.link(text, links, flavor);
+            text = this.replacer.image(text, images);
+        }
+        return text;
+    },
+
+    parser: {
+
+        bold: function(text) {
+            return text.replace(/__(?=\S)([\s\S]*?\S)__(?!_)|\*\*(?=\S)([\s\S]*?\S)\*\*(?!\*)/g, (match, content1, content2) => {
+                return (content1 || content2).split('').map(char => refs[char] ? refs[char].bold : char).join('');
+            });
+        },
+
+        horizontalRule: function(text) {
+            return text.replace(/(\n+|^) {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(\n+|$)/g, '$1----------$3');
+        },
+
+        image: function(text) {
+            const images = [];
+            text = text.replace(/!\[([^\]]*)]\(([^)]+)\)/g, (match, alt, url) => {
                 return '@@@' + (images.push({alt: alt, url: url}) - 1) + '@@@';
             })
-            // Links 
-            .replace(/\[([^\]]+)]\(([^)]+)\)/g, (match, text, link) => {
-                return text + ' %%%' + (links.push(link) - 1) + '%%%';
-            })
-            // Bold
-            .replace(/__(?=\S)([\s\S]*?\S)__(?!_)|\*\*(?=\S)([\s\S]*?\S)\*\*(?!\*)/g, (match, content1, content2) => {
-                return parseTo(content1 ? content1 : content2, 'bold', stylingAllowed);
-            })
-            // Italic
-            .replace(/_(?=\S)([\s\S]*?\S)_(?!_)|\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, (match, content1, content2) => {
-                return parseTo(content1 ? content1 : content2, 'italic', stylingAllowed);
-            })
-            // Strikethrough
-            .replace(/~~(?=\S)([\s\S]*?\S)~~/g, (match, content) => {
-                return parseTo(content, 'strikethrough', stylingAllowed);
-            })
-            // Lists (\u2022 = bullet point)
-            .replace(/(^|\n)[*-] +/g, '$1\u2022 ')
-            // DO BEFORE LAST !!! Replacing placeholders by corresponding links
-            .replace(/%%%(\d+)%%%/g, (match, index) => {
-                return '(' + links[index] + ')';
-            })
-            // DO LAST !!! Replacing placeholders by corresponding images
-            .replace(/@@@(\d+)@@@/g, (match, index) => {
+            return {images: images, text: text};
+        },
+
+        italic: function(text) {
+            return text.replace(/_(?=\S)([\s\S]*?\S)_(?!_)|\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, (match, content1, content2) => {
+                return (content1 || content2).replace(/[\u{1D5D4}-\u{1D607}]/gu, m => mathRefs[m]).split('').map(char => refs[char] ? refs[char].italic : char).join('');
+            });
+        },
+
+        link: function(text, flavor) {
+            const links = [];
+            text = text.replace(/\[([^\]]+)]\((\S+)\)/g, (match, hypertext, link) => {
+                return '[' + this.style(hypertext, flavor) + ']%%%' + (links.push(link) - 1) + '%%%';
+            });
+            return {links: links, text: text};
+        },
+
+        list: function(text) {
+            return text.replace(/(^|\n)[*-] +/g, '$1\u2022 ');
+        },
+
+        strikethrough: function(text) {
+            return text.replace(/~~(?=\S)([\s\S]*?\S)~~/g, (match, content) => {
+                return content.split('').map(char => char.concat('\u0335')).join('');
+            });
+        },
+        
+        style: function(text, flavor) {
+            return text.replace(/([_*]{1,3})([^\n]+)\1/g, (match, md, content) => {
+                if(/^\s?(_|\*)(?: ?\1)*\s?$/.test(content)) return match;
+                if(md.length === 1) return '_' + content + '_';
+                else if(md.length === 2) return flavors[flavor].html.bold + content + flavors[flavor].html.bold;
+                return '_' + flavors[flavor].html.bold + content + flavors[flavor].html.bold + '_';
+            });
+        },
+
+        // Encodes URLs to avoid wrong parses
+        url: function(text) {
+            return text.replace(/(?:(?:http)?s?:\/\/(?:[a-z0-9-]+\.)?)?[\w-]+\.[a-z]+(?:\/?[\w@()?~=%#'-]+)*(?:\.[a-zA-Z\d]+)?[^*)\]\s]/g, match => formatter.encodedURL(match));
+        }
+
+    },
+
+    replacer: {
+
+        image: function(text, images) {
+            return text.replace(/@@@(\d+)@@@/g, (match, index) => {
                 return '![' + images[index].alt + '](' + images[index].url + ')';
             });
+        },
 
-        return text;
+        link: function(text, links, flavor) {
+            return text.replace(/%%%(\d+)%%%/g, (match, index) => {
+                if(flavor === 'twitter') return '(' + links[index] + ')';
+                else return '(' + links[index].replace('(', '%28').replace(')', '%29') + ')';
+            })
+        }
 
     }
 
