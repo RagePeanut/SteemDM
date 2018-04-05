@@ -203,7 +203,7 @@ module.exports = {
                                         const boldParser = markdown.parser[website === 'twitter' ? 'bold' : 'style'];
                                         const arr = [];
                                         for(let i = 0; i < docs.length; i++) {
-                                            arr.push((i + 1) + '. @' + docs[i].author + (canParse ? boldParser(' **mentioned this user in** ', website) : ' mentioned this user in') + (docs[i].parent_author === '' ? docs[i].title : (canParse ? boldParser('**a comment on** ', website) : 'a comment on ') + docs[i].root_title));
+                                            arr.push((i + 1) + '. @' + docs[i].author + (canParse ? boldParser(' **mentioned this user in** ', website) : ' mentioned this user in ') + (docs[i].parent_author === '' ? docs[i].title : (canParse ? boldParser('**a comment on** ', website) : 'a comment on ') + docs[i].root_title));
                                         }
                                         const text = arr.join('\n');
                                         const data = {array: arr, raw: docs, text: text};
