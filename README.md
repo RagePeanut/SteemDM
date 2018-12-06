@@ -1,4 +1,4 @@
-# (ABANDONNED) SteemDM (0.2.0.0)
+# (ABANDONED) SteemDM (0.2.0.0)
 An Open-Source collection of bots that let you interact with the Steem blockchain through direct messages.
 
 ## Try it !
